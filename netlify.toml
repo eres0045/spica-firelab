@@ -9,17 +9,16 @@
   publish = "dist"
   command = "npm run build"
 
-# Verdict-engine API (Flask logic ported to a pure-stdlib Python
-# function — no install step, no card, no separate host). The function
-# lives in netlify/functions/api/ and is served at /api/*; the GitHub
-# Pages deploy calls https://spica-firelab.netlify.app cross-origin
-# instead (the function sends Access-Control-Allow-Origin: *).
+# Verdict-engine API (JavaScript Netlify Function — Python is NOT
+# supported by Netlify Functions; see netlify/functions/api.mjs). The
+# function is served at /api/*; the GitHub Pages deploy calls
+# https://spica-firelab.netlify.app cross-origin instead (the function
+# sends Access-Control-Allow-Origin: *).
 [functions]
   directory = "netlify/functions"
-  # The function reads its data JSONs from disk at runtime; make sure the
-  # bundler ships them (they live inside the function's own folder, but
-  # belt-and-braces — a missing file at runtime would silently break /api).
-  included_files = ["netlify/functions/api/data/**"]
+  # The function imports the app's own data files (src/lib/data.js ->
+  # src/data/*.json); esbuild inlines them into the bundle, so there is
+  # nothing to ship separately and no runtime file reads.
 
 # The /api/* rewrite MUST come before the SPA fallback below — Netlify
 # takes the first matching redirect.

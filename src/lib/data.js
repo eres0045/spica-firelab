@@ -529,7 +529,9 @@ export function buildBrief(atmosphereKey) {
     snapshot: {
       cleaned_at: cleaned.meta?.cleaned_at, rows: cleaned.rows.length,
       investigations: new Set(cleaned.rows.map((r) => r.accession)).size,
-      tables: (cleaned.tables || []).length, source: 'NASA PSI (Physical Sciences Informatics), public data',
+      // cleaned.tables is a DICT keyed by table name (21 entries), not a
+      // list — Object.keys, not .length (the old .length was undefined).
+      tables: Object.keys(cleaned.tables || {}).length, source: 'NASA PSI (Physical Sciences Informatics), public data',
     },
   };
 }

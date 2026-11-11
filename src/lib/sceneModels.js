@@ -33,7 +33,12 @@
  so
  * the constants keep their '/models/...' values there.
  */
-export const PUB = import.meta.env.BASE_URL;
+// Node-safe: plain Node (and the Netlify Function bundle, which imports
+// src/lib/data.js for the shared verdict math) has no import.meta.env —
+// fall back to '/' there, exactly what the tests assume. Vite still
+// replaces import.meta.env.BASE_URL at build time, so the browser value
+// is unchanged.
+export const PUB = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.BASE_URL) || '/';
 export const pub = (p) => `${PUB}${p}`;
 
 export const ISS_PREFERRED_URL = pub('models/iss-uperesito.glb');
