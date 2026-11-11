@@ -1,0 +1,2968 @@
+{
+ "SIBAL fabric": {
+  "material": "SIBAL fabric",
+  "n_o2_rows": 30,
+  "n_p_rows": 0,
+  "o2": {
+   "min": 16.4,
+   "max": 22.1,
+   "levels": [
+    16.4,
+    16.8,
+    16.9,
+    17.1,
+    17.2,
+    17.4,
+    17.5,
+    17.6,
+    18.2,
+    18.5,
+    18.7,
+    18.8,
+    20.7,
+    20.8,
+    21.5,
+    21.7,
+    22.1
+   ]
+  },
+  "pressure": {
+   "verdict": "NOT RECORDED",
+   "min": null,
+   "max": null
+  },
+  "atmospheres": {
+   "ISS": {
+    "o2_nearest": 20.8,
+    "o2_distance_pts": 0.2,
+    "o2_nearest_row": [
+     "PSI-25",
+     "Test T25"
+    ],
+    "o2_verdict": "COVERED",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "PARTIAL \u2014 O2 covered, pressure NOT RECORDED in PSI tables"
+   },
+   "Orion": {
+    "o2_nearest": 22.1,
+    "o2_distance_pts": 4.4,
+    "o2_nearest_row": [
+     "PSI-99",
+     "Sample 2-5"
+    ],
+    "o2_verdict": "GAP",
+    "o2_max_atmos_nearest": 22.1,
+    "o2_max_atmos_distance_pts": 7.9,
+    "o2_max_atmos_verdict": "GAP",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   },
+   "Exploration": {
+    "o2_nearest": 22.1,
+    "o2_distance_pts": 11.9,
+    "o2_nearest_row": [
+     "PSI-99",
+     "Sample 2-5"
+    ],
+    "o2_verdict": "GAP",
+    "o2_max_atmos_nearest": 22.1,
+    "o2_max_atmos_distance_pts": 14.9,
+    "o2_max_atmos_verdict": "GAP",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   }
+  },
+  "o2_by_investigation": {
+   "PSI-25": {
+    "n": 27,
+    "min": 16.4,
+    "max": 20.8,
+    "title": "Burning and Suppression of Solids - II",
+    "doi": "10.60555/4qc4-de67"
+   },
+   "PSI-98": {
+    "n": 3,
+    "min": 21.5,
+    "max": 21.7,
+    "title": "Spacecraft Fire Safety Experiment-I",
+    "doi": "10.60555/0t15-1z43"
+   },
+   "PSI-99": {
+    "n": 1,
+    "min": 22.1,
+    "max": 22.1,
+    "title": "Spacecraft Fire Experiment-II",
+    "doi": "10.60555/2chp-m469"
+   }
+  }
+ },
+ "Nomex": {
+  "material": "Nomex",
+  "n_o2_rows": 3,
+  "n_p_rows": 0,
+  "o2": {
+   "min": 21.0,
+   "max": 22.2,
+   "levels": [
+    21.0,
+    21.7,
+    22.2
+   ]
+  },
+  "pressure": {
+   "verdict": "NOT RECORDED",
+   "min": null,
+   "max": null
+  },
+  "atmospheres": {
+   "ISS": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 0.0,
+    "o2_nearest_row": [
+     "PSI-25",
+     "Test F2"
+    ],
+    "o2_verdict": "COVERED",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "PARTIAL \u2014 O2 covered, pressure NOT RECORDED in PSI tables"
+   },
+   "Orion": {
+    "o2_nearest": 22.2,
+    "o2_distance_pts": 4.3,
+    "o2_nearest_row": [
+     "PSI-25",
+     "Test F1"
+    ],
+    "o2_verdict": "GAP",
+    "o2_max_atmos_nearest": 22.2,
+    "o2_max_atmos_distance_pts": 7.8,
+    "o2_max_atmos_verdict": "GAP",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   },
+   "Exploration": {
+    "o2_nearest": 22.2,
+    "o2_distance_pts": 11.8,
+    "o2_nearest_row": [
+     "PSI-25",
+     "Test F1"
+    ],
+    "o2_verdict": "GAP",
+    "o2_max_atmos_nearest": 22.2,
+    "o2_max_atmos_distance_pts": 14.8,
+    "o2_max_atmos_verdict": "GAP",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   }
+  },
+  "o2_by_investigation": {
+   "PSI-25": {
+    "n": 3,
+    "min": 21.0,
+    "max": 22.2,
+    "title": "Burning and Suppression of Solids - II",
+    "doi": "10.60555/4qc4-de67"
+   }
+  }
+ },
+ "PMMA": {
+  "material": "PMMA",
+  "n_o2_rows": 99,
+  "n_p_rows": 0,
+  "o2": {
+   "min": 13.6,
+   "max": 22.2,
+   "levels": [
+    13.6,
+    14.2,
+    14.5,
+    14.6,
+    14.8,
+    15.0,
+    15.1,
+    15.2,
+    15.3,
+    15.4,
+    15.5,
+    15.7,
+    15.9,
+    16.0,
+    16.3,
+    16.4,
+    16.5,
+    16.7,
+    16.8,
+    17.0,
+    17.1,
+    17.2,
+    17.3,
+    17.4,
+    17.5,
+    17.6,
+    17.7,
+    17.9,
+    18.0,
+    18.2,
+    18.4,
+    18.5,
+    18.8,
+    18.9,
+    19.0,
+    19.1,
+    19.2,
+    19.3,
+    20.0,
+    20.1,
+    20.6,
+    20.7,
+    20.8,
+    20.9,
+    21.0,
+    21.7,
+    21.8,
+    22.0,
+    22.1,
+    22.2
+   ]
+  },
+  "pressure": {
+   "verdict": "NOT RECORDED",
+   "min": null,
+   "max": null
+  },
+  "atmospheres": {
+   "ISS": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 0.0,
+    "o2_nearest_row": [
+     "PSI-25",
+     "Test B6"
+    ],
+    "o2_verdict": "COVERED",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "PARTIAL \u2014 O2 covered, pressure NOT RECORDED in PSI tables"
+   },
+   "Orion": {
+    "o2_nearest": 22.2,
+    "o2_distance_pts": 4.3,
+    "o2_nearest_row": [
+     "PSI-25",
+     "Test B1"
+    ],
+    "o2_verdict": "GAP",
+    "o2_max_atmos_nearest": 22.2,
+    "o2_max_atmos_distance_pts": 7.8,
+    "o2_max_atmos_verdict": "GAP",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   },
+   "Exploration": {
+    "o2_nearest": 22.2,
+    "o2_distance_pts": 11.8,
+    "o2_nearest_row": [
+     "PSI-25",
+     "Test B1"
+    ],
+    "o2_verdict": "GAP",
+    "o2_max_atmos_nearest": 22.2,
+    "o2_max_atmos_distance_pts": 14.8,
+    "o2_max_atmos_verdict": "GAP",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   }
+  },
+  "o2_by_investigation": {
+   "PSI-25": {
+    "n": 98,
+    "min": 13.6,
+    "max": 22.2,
+    "title": "Burning and Suppression of Solids - II",
+    "doi": "10.60555/4qc4-de67"
+   },
+   "PSI-99": {
+    "n": 2,
+    "min": 22.0,
+    "max": 22.1,
+    "title": "Spacecraft Fire Experiment-II",
+    "doi": "10.60555/2chp-m469"
+   }
+  }
+ },
+ "Methanol": {
+  "material": "Methanol",
+  "n_o2_rows": 157,
+  "n_p_rows": 156,
+  "o2": {
+   "min": 12.0,
+   "max": 34.0,
+   "levels": [
+    12.0,
+    13.0,
+    14.0,
+    15.0,
+    16.0,
+    17.0,
+    18.0,
+    19.0,
+    20.0,
+    21.0,
+    23.0,
+    24.0,
+    25.0,
+    30.0,
+    34.0
+   ]
+  },
+  "pressure": {
+   "min": 10.17695093677064,
+   "max": 44.85554453358703
+  },
+  "atmospheres": {
+   "ISS": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 0.0,
+    "o2_nearest_row": [
+     "PSI-69",
+     "FLEX test 1 (20CAL08)"
+    ],
+    "o2_verdict": "COVERED",
+    "pressure_nearest_psi": 14.7,
+    "pressure_distance_psi": 0.0,
+    "pressure_nearest_row": [
+     "PSI-69",
+     "FLEX test 202 (N01M101)"
+    ],
+    "pressure_verdict": "COVERED",
+    "overall": "TESTED"
+   },
+   "Orion": {
+    "o2_nearest": 25.0,
+    "o2_distance_pts": 1.5,
+    "o2_nearest_row": [
+     "PSI-69",
+     "FLEX test 88 (053R001)"
+    ],
+    "o2_verdict": "COVERED",
+    "o2_max_atmos_nearest": 30.0,
+    "o2_max_atmos_distance_pts": 0.0,
+    "o2_max_atmos_verdict": "COVERED",
+    "pressure_nearest_psi": 10.2,
+    "pressure_distance_psi": 0.0,
+    "pressure_nearest_row": [
+     "PSI-69",
+     "FLEX test 262 (H13M102)"
+    ],
+    "pressure_verdict": "COVERED",
+    "overall": "TESTED"
+   },
+   "Exploration": {
+    "o2_nearest": 34.0,
+    "o2_distance_pts": 0.0,
+    "o2_nearest_row": [
+     "PSI-69",
+     "FLEX test 20 (192F001)"
+    ],
+    "o2_verdict": "COVERED",
+    "o2_max_atmos_nearest": 34.0,
+    "o2_max_atmos_distance_pts": 3.0,
+    "o2_max_atmos_verdict": "GAP",
+    "pressure_nearest_psi": 10.18,
+    "pressure_distance_psi": 1.98,
+    "pressure_nearest_row": [
+     "PSI-69",
+     "FLEX test 121 (C12M101)"
+    ],
+    "pressure_verdict": "GAP",
+    "overall": "GAP (pressure)"
+   }
+  },
+  "o2_by_investigation": {
+   "PSI-69": {
+    "n": 157,
+    "min": 12.0,
+    "max": 34.0,
+    "title": "Flame Extinguishment Experiment",
+    "doi": "10.60555/mbq8-0451"
+   }
+  }
+ },
+ "Heptane": {
+  "material": "Heptane",
+  "n_o2_rows": 117,
+  "n_p_rows": 117,
+  "o2": {
+   "min": 13.0,
+   "max": 34.0,
+   "levels": [
+    13.0,
+    14.0,
+    15.0,
+    16.0,
+    17.0,
+    18.0,
+    19.0,
+    20.0,
+    21.0,
+    23.0,
+    24.0,
+    25.0,
+    30.0,
+    34.0
+   ]
+  },
+  "pressure": {
+   "min": 10.209823474472541,
+   "max": 44.85941189096373
+  },
+  "atmospheres": {
+   "ISS": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 0.0,
+    "o2_nearest_row": [
+     "PSI-69",
+     "FLEX test 7 (20CAL13)"
+    ],
+    "o2_verdict": "COVERED",
+    "pressure_nearest_psi": 14.7,
+    "pressure_distance_psi": 0.0,
+    "pressure_nearest_row": [
+     "PSI-69",
+     "FLEX test 206 (N01H201)"
+    ],
+    "pressure_verdict": "COVERED",
+    "overall": "TESTED"
+   },
+   "Orion": {
+    "o2_nearest": 25.0,
+    "o2_distance_pts": 1.5,
+    "o2_nearest_row": [
+     "PSI-69",
+     "FLEX test 92 (061F002)"
+    ],
+    "o2_verdict": "COVERED",
+    "o2_max_atmos_nearest": 30.0,
+    "o2_max_atmos_distance_pts": 0.0,
+    "o2_max_atmos_verdict": "COVERED",
+    "pressure_nearest_psi": 10.21,
+    "pressure_distance_psi": 0.01,
+    "pressure_nearest_row": [
+     "PSI-69",
+     "FLEX test 267 (H14H101)"
+    ],
+    "pressure_verdict": "COVERED",
+    "overall": "TESTED"
+   },
+   "Exploration": {
+    "o2_nearest": 34.0,
+    "o2_distance_pts": 0.0,
+    "o2_nearest_row": [
+     "PSI-69",
+     "FLEX test 19 (196F001)"
+    ],
+    "o2_verdict": "COVERED",
+    "o2_max_atmos_nearest": 34.0,
+    "o2_max_atmos_distance_pts": 3.0,
+    "o2_max_atmos_verdict": "GAP",
+    "pressure_nearest_psi": 10.21,
+    "pressure_distance_psi": 2.01,
+    "pressure_nearest_row": [
+     "PSI-69",
+     "FLEX test 267 (H14H101)"
+    ],
+    "pressure_verdict": "GAP",
+    "overall": "GAP (pressure)"
+   }
+  },
+  "o2_by_investigation": {
+   "PSI-69": {
+    "n": 117,
+    "min": 13.0,
+    "max": 34.0,
+    "title": "Flame Extinguishment Experiment",
+    "doi": "10.60555/mbq8-0451"
+   }
+  }
+ },
+ "Butane": {
+  "material": "Butane",
+  "n_o2_rows": 140,
+  "n_p_rows": 140,
+  "o2": {
+   "min": 20.669481100000002,
+   "max": 85.0,
+   "levels": [
+    20.669,
+    20.747,
+    20.859,
+    20.97,
+    21.0,
+    21.104,
+    21.107,
+    21.11,
+    23.325,
+    23.365,
+    23.41,
+    30.0,
+    35.294,
+    35.376,
+    35.424,
+    35.544,
+    35.853,
+    36.928,
+    37.205,
+    37.717,
+    37.852,
+    38.067,
+    38.078,
+    38.121,
+    38.251,
+    38.266,
+    38.317,
+    38.406,
+    38.438,
+    38.464,
+    38.475,
+    38.544,
+    38.547,
+    38.617,
+    38.622,
+    38.719,
+    38.813,
+    38.832,
+    38.846,
+    38.86,
+    38.916,
+    38.926,
+    38.927,
+    38.961,
+    39.055,
+    39.082,
+    39.249,
+    39.26,
+    39.303,
+    39.412,
+    39.423,
+    39.431,
+    39.45,
+    39.495,
+    39.537,
+    39.57,
+    39.655,
+    39.78,
+    39.85,
+    39.93,
+    40.0,
+    45.0,
+    50.0,
+    70.0,
+    85.0
+   ]
+  },
+  "pressure": {
+   "min": 7.348350270000001,
+   "max": 48.00612762
+  },
+  "atmospheres": {
+   "ISS": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 0.0,
+    "o2_nearest_row": [
+     "PSI-159",
+     "Test 21256 F1"
+    ],
+    "o2_verdict": "COVERED",
+    "pressure_nearest_psi": 14.7,
+    "pressure_distance_psi": 0.0,
+    "pressure_nearest_row": [
+     "PSI-159",
+     "Test 21102A1"
+    ],
+    "pressure_verdict": "COVERED",
+    "overall": "TESTED"
+   },
+   "Orion": {
+    "o2_nearest": 23.41,
+    "o2_distance_pts": 3.09,
+    "o2_nearest_row": [
+     "PSI-159",
+     "Test 21102 M1"
+    ],
+    "o2_verdict": "COVERED",
+    "o2_max_atmos_nearest": 30.0,
+    "o2_max_atmos_distance_pts": 0.0,
+    "o2_max_atmos_verdict": "COVERED",
+    "pressure_nearest_psi": 8.0,
+    "pressure_distance_psi": 2.2,
+    "pressure_nearest_row": [
+     "PSI-159",
+     "Test 21277 A1"
+    ],
+    "pressure_verdict": "COVERED",
+    "overall": "TESTED"
+   },
+   "Exploration": {
+    "o2_nearest": 35.293776199999996,
+    "o2_distance_pts": 1.29,
+    "o2_nearest_row": [
+     "PSI-159",
+     "Test 21106 F5"
+    ],
+    "o2_verdict": "COVERED",
+    "o2_max_atmos_nearest": 36.9281404,
+    "o2_max_atmos_distance_pts": 0.07,
+    "o2_max_atmos_verdict": "COVERED",
+    "pressure_nearest_psi": 8.0,
+    "pressure_distance_psi": 0.2,
+    "pressure_nearest_row": [
+     "PSI-159",
+     "Test 21277 A1"
+    ],
+    "pressure_verdict": "COVERED",
+    "overall": "TESTED"
+   }
+  },
+  "o2_by_investigation": {
+   "PSI-159": {
+    "n": 140,
+    "min": 20.67,
+    "max": 85.0,
+    "title": "Advanced Combustion via Microgravity Experiments / Cool Flames Investigation with Gases",
+    "doi": "10.60555/cyt1-kh64"
+   }
+  }
+ },
+ "Dodecane / iso-dodecane blend": {
+  "material": "Dodecane / iso-dodecane blend",
+  "n_o2_rows": 65,
+  "n_p_rows": 65,
+  "o2": {
+   "min": 17.0,
+   "max": 21.0,
+   "levels": [
+    17.0,
+    21.0
+   ]
+  },
+  "pressure": {
+   "min": 7.34795,
+   "max": 73.4795
+  },
+  "atmospheres": {
+   "ISS": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 0.0,
+    "o2_nearest_row": [
+     "PSI-39",
+     "Flex 1295"
+    ],
+    "o2_verdict": "COVERED",
+    "pressure_nearest_psi": 14.7,
+    "pressure_distance_psi": 0.0,
+    "pressure_nearest_row": [
+     "PSI-39",
+     "Flex 1285"
+    ],
+    "pressure_verdict": "COVERED",
+    "overall": "TESTED"
+   },
+   "Orion": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 5.5,
+    "o2_nearest_row": [
+     "PSI-39",
+     "Flex 1295"
+    ],
+    "o2_verdict": "GAP",
+    "o2_max_atmos_nearest": 21.0,
+    "o2_max_atmos_distance_pts": 9.0,
+    "o2_max_atmos_verdict": "GAP",
+    "pressure_nearest_psi": 11.02,
+    "pressure_distance_psi": 0.82,
+    "pressure_nearest_row": [
+     "PSI-39",
+     "Flex 1346"
+    ],
+    "pressure_verdict": "COVERED",
+    "overall": "GAP (O2)"
+   },
+   "Exploration": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 13.0,
+    "o2_nearest_row": [
+     "PSI-39",
+     "Flex 1295"
+    ],
+    "o2_verdict": "GAP",
+    "o2_max_atmos_nearest": 21.0,
+    "o2_max_atmos_distance_pts": 16.0,
+    "o2_max_atmos_verdict": "GAP",
+    "pressure_nearest_psi": 7.35,
+    "pressure_distance_psi": 0.85,
+    "pressure_nearest_row": [
+     "PSI-39",
+     "Flex 1356"
+    ],
+    "pressure_verdict": "COVERED",
+    "overall": "GAP (O2)"
+   }
+  },
+  "o2_by_investigation": {
+   "PSI-39": {
+    "n": 65,
+    "min": 17.0,
+    "max": 21.0,
+    "title": "Cool Flames Investigation",
+    "doi": "10.60555/m6pj-a914"
+   }
+  }
+ },
+ "Ethane": {
+  "material": "Ethane",
+  "n_o2_rows": 94,
+  "n_p_rows": 94,
+  "o2": {
+   "min": 12.0,
+   "max": 85.0,
+   "levels": [
+    12.0,
+    13.5,
+    15.0,
+    17.969,
+    18.0,
+    18.02,
+    20.722,
+    20.754,
+    20.839,
+    20.893,
+    20.929,
+    20.962,
+    20.964,
+    21.0,
+    21.01,
+    30.0,
+    33.245,
+    33.493,
+    34.081,
+    36.388,
+    36.455,
+    36.958,
+    37.209,
+    37.339,
+    37.59,
+    37.614,
+    37.933,
+    37.986,
+    38.043,
+    38.206,
+    38.291,
+    38.359,
+    38.415,
+    38.632,
+    38.87,
+    38.894,
+    38.982,
+    39.002,
+    39.198,
+    39.39,
+    39.484,
+    39.497,
+    39.663,
+    39.85,
+    39.97,
+    50.0,
+    85.0
+   ]
+  },
+  "pressure": {
+   "min": 7.18491710046,
+   "max": 48.00612762
+  },
+  "atmospheres": {
+   "ISS": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 0.0,
+    "o2_nearest_row": [
+     "PSI-159",
+     "Test 21162 C1"
+    ],
+    "o2_verdict": "COVERED",
+    "pressure_nearest_psi": 14.7,
+    "pressure_distance_psi": 0.0,
+    "pressure_nearest_row": [
+     "PSI-159",
+     "Test 21088 M4"
+    ],
+    "pressure_verdict": "COVERED",
+    "overall": "TESTED"
+   },
+   "Orion": {
+    "o2_nearest": 30.0,
+    "o2_distance_pts": 3.5,
+    "o2_nearest_row": [
+     "PSI-159",
+     "Test 21196 M1"
+    ],
+    "o2_verdict": "COVERED",
+    "o2_max_atmos_nearest": 30.0,
+    "o2_max_atmos_distance_pts": 0.0,
+    "o2_max_atmos_verdict": "COVERED",
+    "pressure_nearest_psi": 8.0,
+    "pressure_distance_psi": 2.2,
+    "pressure_nearest_row": [
+     "PSI-159",
+     "Test 21209 A1"
+    ],
+    "pressure_verdict": "COVERED",
+    "overall": "TESTED"
+   },
+   "Exploration": {
+    "o2_nearest": 34.080788,
+    "o2_distance_pts": 0.08,
+    "o2_nearest_row": [
+     "PSI-159",
+     "Test 21153 F1"
+    ],
+    "o2_verdict": "COVERED",
+    "o2_max_atmos_nearest": 36.9578072,
+    "o2_max_atmos_distance_pts": 0.04,
+    "o2_max_atmos_verdict": "COVERED",
+    "pressure_nearest_psi": 8.0,
+    "pressure_distance_psi": 0.2,
+    "pressure_nearest_row": [
+     "PSI-159",
+     "Test 21209 A1"
+    ],
+    "pressure_verdict": "COVERED",
+    "overall": "TESTED"
+   }
+  },
+  "o2_by_investigation": {
+   "PSI-159": {
+    "n": 94,
+    "min": 12.0,
+    "max": 85.0,
+    "title": "Advanced Combustion via Microgravity Experiments / Cool Flames Investigation with Gases",
+    "doi": "10.60555/cyt1-kh64"
+   }
+  }
+ },
+ "Ethylene": {
+  "material": "Ethylene",
+  "n_o2_rows": 187,
+  "n_p_rows": 187,
+  "o2": {
+   "min": 19.804819300000002,
+   "max": 39.859835100000005,
+   "levels": [
+    19.805,
+    19.86,
+    19.916,
+    19.942,
+    19.969,
+    19.98,
+    19.986,
+    20.011,
+    20.046,
+    20.049,
+    20.054,
+    20.058,
+    20.087,
+    20.088,
+    20.105,
+    20.112,
+    20.133,
+    20.136,
+    20.152,
+    20.164,
+    20.183,
+    20.188,
+    20.2,
+    20.225,
+    20.239,
+    20.255,
+    20.282,
+    20.284,
+    20.288,
+    20.323,
+    20.343,
+    20.346,
+    20.363,
+    20.381,
+    20.386,
+    20.393,
+    20.402,
+    20.432,
+    20.443,
+    20.444,
+    20.452,
+    20.489,
+    20.491,
+    20.494,
+    20.536,
+    20.546,
+    20.549,
+    20.566,
+    20.594,
+    20.608,
+    20.617,
+    20.618,
+    20.658,
+    20.667,
+    20.677,
+    20.713,
+    20.727,
+    20.738,
+    20.797,
+    20.802,
+    20.821,
+    20.858,
+    20.872,
+    20.898,
+    20.919,
+    20.952,
+    20.983,
+    20.991,
+    21.019,
+    28.942,
+    29.395,
+    29.402,
+    29.743,
+    29.943,
+    30.028,
+    35.834,
+    35.96,
+    36.092,
+    36.143,
+    36.175,
+    36.258,
+    36.274,
+    36.446,
+    36.535,
+    36.55,
+    36.561,
+    36.593,
+    36.853,
+    36.93,
+    36.954,
+    37.04,
+    37.041,
+    37.068,
+    37.107,
+    37.214,
+    37.252,
+    37.317,
+    37.343,
+    37.345,
+    37.391,
+    37.496,
+    37.559,
+    37.598,
+    37.692,
+    37.744,
+    37.843,
+    37.855,
+    37.872,
+    37.876,
+    37.887,
+    37.94,
+    37.965,
+    37.97,
+    38.006,
+    38.027,
+    38.134,
+    38.165,
+    38.221,
+    38.255,
+    38.257,
+    38.259,
+    38.282,
+    38.309,
+    38.324,
+    38.38,
+    38.399,
+    38.427,
+    38.45,
+    38.464,
+    38.481,
+    38.489,
+    38.57,
+    38.596,
+    38.612,
+    38.628,
+    38.657,
+    38.659,
+    38.695,
+    38.716,
+    38.758,
+    38.759,
+    38.771,
+    38.785,
+    38.786,
+    38.815,
+    38.826,
+    38.873,
+    38.895,
+    38.897,
+    38.902,
+    38.944,
+    38.978,
+    38.999,
+    39.008,
+    39.019,
+    39.057,
+    39.075,
+    39.087,
+    39.098,
+    39.151,
+    39.198,
+    39.22,
+    39.227,
+    39.255,
+    39.264,
+    39.361,
+    39.401,
+    39.435,
+    39.445,
+    39.471,
+    39.493,
+    39.522,
+    39.546,
+    39.557,
+    39.584,
+    39.683,
+    39.695,
+    39.705,
+    39.725,
+    39.824,
+    39.839,
+    39.854,
+    39.86
+   ]
+  },
+  "pressure": {
+   "min": 14.579959342212,
+   "max": 19.259946291564
+  },
+  "atmospheres": {
+   "ISS": {
+    "o2_nearest": 20.9912572,
+    "o2_distance_pts": 0.01,
+    "o2_nearest_row": [
+     "PSI-10",
+     "Test 19206A1"
+    ],
+    "o2_verdict": "COVERED",
+    "pressure_nearest_psi": 14.77,
+    "pressure_distance_psi": 0.07,
+    "pressure_nearest_row": [
+     "PSI-10",
+     "Test 19123A1"
+    ],
+    "pressure_verdict": "COVERED",
+    "overall": "TESTED"
+   },
+   "Orion": {
+    "o2_nearest": 28.942261600000002,
+    "o2_distance_pts": 2.44,
+    "o2_nearest_row": [
+     "PSI-10",
+     "Test 19200H3"
+    ],
+    "o2_verdict": "COVERED",
+    "o2_max_atmos_nearest": 30.0281323,
+    "o2_max_atmos_distance_pts": 0.03,
+    "o2_max_atmos_verdict": "COVERED",
+    "pressure_nearest_psi": 14.58,
+    "pressure_distance_psi": 4.38,
+    "pressure_nearest_row": [
+     "PSI-10",
+     "Test 19142G5"
+    ],
+    "pressure_verdict": "GAP",
+    "overall": "GAP (pressure)"
+   },
+   "Exploration": {
+    "o2_nearest": 35.8337895,
+    "o2_distance_pts": 1.83,
+    "o2_nearest_row": [
+     "PSI-10",
+     "Test 19150G3"
+    ],
+    "o2_verdict": "COVERED",
+    "o2_max_atmos_nearest": 37.0400179,
+    "o2_max_atmos_distance_pts": 0.04,
+    "o2_max_atmos_verdict": "COVERED",
+    "pressure_nearest_psi": 14.58,
+    "pressure_distance_psi": 6.38,
+    "pressure_nearest_row": [
+     "PSI-10",
+     "Test 19142G5"
+    ],
+    "pressure_verdict": "GAP",
+    "overall": "GAP (pressure)"
+   }
+  },
+  "o2_by_investigation": {
+   "PSI-10": {
+    "n": 187,
+    "min": 19.8,
+    "max": 39.86,
+    "title": "Advanced Combustion via Microgravity Experiments / Flame Design",
+    "doi": "10.60555/w4zy-bt45"
+   }
+  }
+ },
+ "Ethylene (100% bottle)": {
+  "material": "Ethylene (100% bottle)",
+  "n_o2_rows": 26,
+  "n_p_rows": 0,
+  "o2": {
+   "min": 21.0,
+   "max": 40.0,
+   "levels": [
+    21.0,
+    25.0,
+    26.5,
+    34.0,
+    40.0
+   ]
+  },
+  "pressure": {
+   "verdict": "NOT RECORDED",
+   "min": null,
+   "max": null
+  },
+  "atmospheres": {
+   "ISS": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 0.0,
+    "o2_nearest_row": [
+     "PSI-20",
+     "Test day 8"
+    ],
+    "o2_verdict": "COVERED",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "PARTIAL \u2014 O2 covered, pressure NOT RECORDED in PSI tables"
+   },
+   "Orion": {
+    "o2_nearest": 26.5,
+    "o2_distance_pts": 0.0,
+    "o2_nearest_row": [
+     "PSI-20",
+     "Test day 8"
+    ],
+    "o2_verdict": "COVERED",
+    "o2_max_atmos_nearest": 26.5,
+    "o2_max_atmos_distance_pts": 3.5,
+    "o2_max_atmos_verdict": "COVERED",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "PARTIAL \u2014 O2 covered, pressure NOT RECORDED in PSI tables"
+   },
+   "Exploration": {
+    "o2_nearest": 34.0,
+    "o2_distance_pts": 0.0,
+    "o2_nearest_row": [
+     "PSI-20",
+     "Test day 20"
+    ],
+    "o2_verdict": "COVERED",
+    "o2_max_atmos_nearest": 40.0,
+    "o2_max_atmos_distance_pts": 3.0,
+    "o2_max_atmos_verdict": "COVERED",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "PARTIAL \u2014 O2 covered, pressure NOT RECORDED in PSI tables"
+   }
+  },
+  "o2_by_investigation": {
+   "PSI-20": {
+    "n": 26,
+    "min": 21.0,
+    "max": 40.0,
+    "title": "Advanced Combustion via Microgravity Experiments - Burning Rate Emulator",
+    "doi": "10.60555/vb93-3y72"
+   }
+  }
+ },
+ "Ethylene (20% bottle) [with He]": {
+  "material": "Ethylene (20% bottle) [with He]",
+  "n_o2_rows": 1,
+  "n_p_rows": 0,
+  "o2": {
+   "min": 30.0,
+   "max": 30.0,
+   "levels": [
+    30.0
+   ]
+  },
+  "pressure": {
+   "verdict": "NOT RECORDED",
+   "min": null,
+   "max": null
+  },
+  "atmospheres": {
+   "ISS": {
+    "o2_nearest": 30.0,
+    "o2_distance_pts": 9.0,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 20164"
+    ],
+    "o2_verdict": "GAP",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   },
+   "Orion": {
+    "o2_nearest": 30.0,
+    "o2_distance_pts": 3.5,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 20164"
+    ],
+    "o2_verdict": "GAP",
+    "o2_max_atmos_nearest": 30.0,
+    "o2_max_atmos_distance_pts": 0.0,
+    "o2_max_atmos_verdict": "COVERED",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   },
+   "Exploration": {
+    "o2_nearest": 30.0,
+    "o2_distance_pts": 4.0,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 20164"
+    ],
+    "o2_verdict": "GAP",
+    "o2_max_atmos_nearest": 30.0,
+    "o2_max_atmos_distance_pts": 7.0,
+    "o2_max_atmos_verdict": "GAP",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   }
+  },
+  "o2_by_investigation": {
+   "PSI-23": {
+    "n": 1,
+    "min": 30.0,
+    "max": 30.0,
+    "title": "Advanced Combustion via Microgravity Experiments-Structure and Response of Spherical Diffusion Flames",
+    "doi": "10.60555/k57n-p030"
+   }
+  }
+ },
+ "Ethylene (25% bottle) [with He]": {
+  "material": "Ethylene (25% bottle) [with He]",
+  "n_o2_rows": 2,
+  "n_p_rows": 0,
+  "o2": {
+   "min": 21.0,
+   "max": 30.0,
+   "levels": [
+    21.0,
+    30.0
+   ]
+  },
+  "pressure": {
+   "verdict": "NOT RECORDED",
+   "min": null,
+   "max": null
+  },
+  "atmospheres": {
+   "ISS": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 0.0,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 20170"
+    ],
+    "o2_verdict": "COVERED",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "PARTIAL \u2014 O2 covered, pressure NOT RECORDED in PSI tables"
+   },
+   "Orion": {
+    "o2_nearest": 30.0,
+    "o2_distance_pts": 3.5,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 20170"
+    ],
+    "o2_verdict": "COVERED",
+    "o2_max_atmos_nearest": 30.0,
+    "o2_max_atmos_distance_pts": 0.0,
+    "o2_max_atmos_verdict": "COVERED",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "PARTIAL \u2014 O2 covered, pressure NOT RECORDED in PSI tables"
+   },
+   "Exploration": {
+    "o2_nearest": 30.0,
+    "o2_distance_pts": 4.0,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 20170"
+    ],
+    "o2_verdict": "GAP",
+    "o2_max_atmos_nearest": 30.0,
+    "o2_max_atmos_distance_pts": 7.0,
+    "o2_max_atmos_verdict": "GAP",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   }
+  },
+  "o2_by_investigation": {
+   "PSI-23": {
+    "n": 2,
+    "min": 21.0,
+    "max": 30.0,
+    "title": "Advanced Combustion via Microgravity Experiments-Structure and Response of Spherical Diffusion Flames",
+    "doi": "10.60555/k57n-p030"
+   }
+  }
+ },
+ "Ethylene (30% bottle) [with He]": {
+  "material": "Ethylene (30% bottle) [with He]",
+  "n_o2_rows": 2,
+  "n_p_rows": 0,
+  "o2": {
+   "min": 21.0,
+   "max": 30.0,
+   "levels": [
+    21.0,
+    30.0
+   ]
+  },
+  "pressure": {
+   "verdict": "NOT RECORDED",
+   "min": null,
+   "max": null
+  },
+  "atmospheres": {
+   "ISS": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 0.0,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 20176"
+    ],
+    "o2_verdict": "COVERED",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "PARTIAL \u2014 O2 covered, pressure NOT RECORDED in PSI tables"
+   },
+   "Orion": {
+    "o2_nearest": 30.0,
+    "o2_distance_pts": 3.5,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 20176"
+    ],
+    "o2_verdict": "COVERED",
+    "o2_max_atmos_nearest": 30.0,
+    "o2_max_atmos_distance_pts": 0.0,
+    "o2_max_atmos_verdict": "COVERED",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "PARTIAL \u2014 O2 covered, pressure NOT RECORDED in PSI tables"
+   },
+   "Exploration": {
+    "o2_nearest": 30.0,
+    "o2_distance_pts": 4.0,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 20176"
+    ],
+    "o2_verdict": "GAP",
+    "o2_max_atmos_nearest": 30.0,
+    "o2_max_atmos_distance_pts": 7.0,
+    "o2_max_atmos_verdict": "GAP",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   }
+  },
+  "o2_by_investigation": {
+   "PSI-23": {
+    "n": 2,
+    "min": 21.0,
+    "max": 30.0,
+    "title": "Advanced Combustion via Microgravity Experiments-Structure and Response of Spherical Diffusion Flames",
+    "doi": "10.60555/k57n-p030"
+   }
+  }
+ },
+ "Ethylene (50% bottle)": {
+  "material": "Ethylene (50% bottle)",
+  "n_o2_rows": 10,
+  "n_p_rows": 0,
+  "o2": {
+   "min": 21.0,
+   "max": 40.0,
+   "levels": [
+    21.0,
+    25.0,
+    26.5,
+    34.0,
+    40.0
+   ]
+  },
+  "pressure": {
+   "verdict": "NOT RECORDED",
+   "min": null,
+   "max": null
+  },
+  "atmospheres": {
+   "ISS": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 0.0,
+    "o2_nearest_row": [
+     "PSI-20",
+     "Test day 25"
+    ],
+    "o2_verdict": "COVERED",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "PARTIAL \u2014 O2 covered, pressure NOT RECORDED in PSI tables"
+   },
+   "Orion": {
+    "o2_nearest": 26.5,
+    "o2_distance_pts": 0.0,
+    "o2_nearest_row": [
+     "PSI-20",
+     "Test day 25"
+    ],
+    "o2_verdict": "COVERED",
+    "o2_max_atmos_nearest": 26.5,
+    "o2_max_atmos_distance_pts": 3.5,
+    "o2_max_atmos_verdict": "COVERED",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "PARTIAL \u2014 O2 covered, pressure NOT RECORDED in PSI tables"
+   },
+   "Exploration": {
+    "o2_nearest": 34.0,
+    "o2_distance_pts": 0.0,
+    "o2_nearest_row": [
+     "PSI-20",
+     "Test day 25"
+    ],
+    "o2_verdict": "COVERED",
+    "o2_max_atmos_nearest": 34.0,
+    "o2_max_atmos_distance_pts": 3.0,
+    "o2_max_atmos_verdict": "COVERED",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "PARTIAL \u2014 O2 covered, pressure NOT RECORDED in PSI tables"
+   }
+  },
+  "o2_by_investigation": {
+   "PSI-20": {
+    "n": 10,
+    "min": 21.0,
+    "max": 40.0,
+    "title": "Advanced Combustion via Microgravity Experiments - Burning Rate Emulator",
+    "doi": "10.60555/vb93-3y72"
+   }
+  }
+ },
+ "Ethylene (50% bottle) [with N2]": {
+  "material": "Ethylene (50% bottle) [with N2]",
+  "n_o2_rows": 2,
+  "n_p_rows": 0,
+  "o2": {
+   "min": 21.0,
+   "max": 21.0,
+   "levels": [
+    21.0
+   ]
+  },
+  "pressure": {
+   "verdict": "NOT RECORDED",
+   "min": null,
+   "max": null
+  },
+  "atmospheres": {
+   "ISS": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 0.0,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 19254"
+    ],
+    "o2_verdict": "COVERED",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "PARTIAL \u2014 O2 covered, pressure NOT RECORDED in PSI tables"
+   },
+   "Orion": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 5.5,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 19254"
+    ],
+    "o2_verdict": "GAP",
+    "o2_max_atmos_nearest": 21.0,
+    "o2_max_atmos_distance_pts": 9.0,
+    "o2_max_atmos_verdict": "GAP",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   },
+   "Exploration": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 13.0,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 19254"
+    ],
+    "o2_verdict": "GAP",
+    "o2_max_atmos_nearest": 21.0,
+    "o2_max_atmos_distance_pts": 16.0,
+    "o2_max_atmos_verdict": "GAP",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   }
+  },
+  "o2_by_investigation": {
+   "PSI-23": {
+    "n": 2,
+    "min": 21.0,
+    "max": 21.0,
+    "title": "Advanced Combustion via Microgravity Experiments-Structure and Response of Spherical Diffusion Flames",
+    "doi": "10.60555/k57n-p030"
+   }
+  }
+ },
+ "Ethylene (50% bottle) [with N3]": {
+  "material": "Ethylene (50% bottle) [with N3]",
+  "n_o2_rows": 1,
+  "n_p_rows": 0,
+  "o2": {
+   "min": 21.0,
+   "max": 21.0,
+   "levels": [
+    21.0
+   ]
+  },
+  "pressure": {
+   "verdict": "NOT RECORDED",
+   "min": null,
+   "max": null
+  },
+  "atmospheres": {
+   "ISS": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 0.0,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 19256"
+    ],
+    "o2_verdict": "COVERED",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "PARTIAL \u2014 O2 covered, pressure NOT RECORDED in PSI tables"
+   },
+   "Orion": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 5.5,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 19256"
+    ],
+    "o2_verdict": "GAP",
+    "o2_max_atmos_nearest": 21.0,
+    "o2_max_atmos_distance_pts": 9.0,
+    "o2_max_atmos_verdict": "GAP",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   },
+   "Exploration": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 13.0,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 19256"
+    ],
+    "o2_verdict": "GAP",
+    "o2_max_atmos_nearest": 21.0,
+    "o2_max_atmos_distance_pts": 16.0,
+    "o2_max_atmos_verdict": "GAP",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   }
+  },
+  "o2_by_investigation": {
+   "PSI-23": {
+    "n": 1,
+    "min": 21.0,
+    "max": 21.0,
+    "title": "Advanced Combustion via Microgravity Experiments-Structure and Response of Spherical Diffusion Flames",
+    "doi": "10.60555/k57n-p030"
+   }
+  }
+ },
+ "Flame Design inverse flame (fuel not stated per-row in PSI table)": {
+  "material": "Flame Design inverse flame (fuel not stated per-row in PSI table)",
+  "n_o2_rows": 109,
+  "n_p_rows": 120,
+  "o2": {
+   "min": 21.2017175,
+   "max": 84.9977932,
+   "levels": [
+    21.202,
+    21.229,
+    21.232,
+    21.238,
+    21.247,
+    25.291,
+    25.608,
+    25.627,
+    26.229,
+    26.997,
+    27.038,
+    27.11,
+    28.977,
+    29.063,
+    29.124,
+    29.137,
+    29.399,
+    29.488,
+    31.817,
+    31.857,
+    31.965,
+    32.736,
+    34.537,
+    35.542,
+    35.586,
+    36.425,
+    36.479,
+    36.542,
+    36.616,
+    37.083,
+    37.129,
+    40.193,
+    41.158,
+    41.2,
+    41.328,
+    43.341,
+    43.383,
+    43.472,
+    45.533,
+    45.572,
+    45.589,
+    46.099,
+    46.94,
+    49.126,
+    49.715,
+    49.805,
+    50.049,
+    50.203,
+    56.486,
+    56.526,
+    56.866,
+    56.91,
+    56.96,
+    57.196,
+    57.203,
+    64.389,
+    64.446,
+    84.998
+   ]
+  },
+  "pressure": {
+   "min": 6.259982543364,
+   "max": 44.354876311647
+  },
+  "atmospheres": {
+   "ISS": {
+    "o2_nearest": 21.2017175,
+    "o2_distance_pts": 0.2,
+    "o2_nearest_row": [
+     "PSI-10",
+     "Test 21349N4"
+    ],
+    "o2_verdict": "GAP",
+    "pressure_nearest_psi": 14.74,
+    "pressure_distance_psi": 0.04,
+    "pressure_nearest_row": [
+     "PSI-10",
+     "Test 22018A1"
+    ],
+    "pressure_verdict": "COVERED",
+    "overall": "GAP (O2)"
+   },
+   "Orion": {
+    "o2_nearest": 26.2286322,
+    "o2_distance_pts": 0.27,
+    "o2_nearest_row": [
+     "PSI-10",
+     "Test 21349M2"
+    ],
+    "o2_verdict": "COVERED",
+    "o2_max_atmos_nearest": 29.4875805,
+    "o2_max_atmos_distance_pts": 0.51,
+    "o2_max_atmos_verdict": "COVERED",
+    "pressure_nearest_psi": 7.71,
+    "pressure_distance_psi": 2.49,
+    "pressure_nearest_row": [
+     "PSI-10",
+     "Test 22024K3"
+    ],
+    "pressure_verdict": "COVERED",
+    "overall": "TESTED"
+   },
+   "Exploration": {
+    "o2_nearest": 34.537108700000005,
+    "o2_distance_pts": 0.54,
+    "o2_nearest_row": [
+     "PSI-10",
+     "Test 21349M1"
+    ],
+    "o2_verdict": "COVERED",
+    "o2_max_atmos_nearest": 37.082819,
+    "o2_max_atmos_distance_pts": 0.08,
+    "o2_max_atmos_verdict": "COVERED",
+    "pressure_nearest_psi": 7.71,
+    "pressure_distance_psi": 0.49,
+    "pressure_nearest_row": [
+     "PSI-10",
+     "Test 22024K3"
+    ],
+    "pressure_verdict": "COVERED",
+    "overall": "TESTED"
+   }
+  },
+  "o2_by_investigation": {
+   "PSI-10": {
+    "n": 109,
+    "min": 21.2,
+    "max": 85.0,
+    "title": "Advanced Combustion via Microgravity Experiments / Flame Design",
+    "doi": "10.60555/w4zy-bt45"
+   }
+  }
+ },
+ "Hydrogen (100% bottle)": {
+  "material": "Hydrogen (100% bottle)",
+  "n_o2_rows": 2,
+  "n_p_rows": 0,
+  "o2": {
+   "min": 21.0,
+   "max": 21.0,
+   "levels": [
+    21.0
+   ]
+  },
+  "pressure": {
+   "verdict": "NOT RECORDED",
+   "min": null,
+   "max": null
+  },
+  "atmospheres": {
+   "ISS": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 0.0,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 19352"
+    ],
+    "o2_verdict": "COVERED",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "PARTIAL \u2014 O2 covered, pressure NOT RECORDED in PSI tables"
+   },
+   "Orion": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 5.5,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 19352"
+    ],
+    "o2_verdict": "GAP",
+    "o2_max_atmos_nearest": 21.0,
+    "o2_max_atmos_distance_pts": 9.0,
+    "o2_max_atmos_verdict": "GAP",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   },
+   "Exploration": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 13.0,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 19352"
+    ],
+    "o2_verdict": "GAP",
+    "o2_max_atmos_nearest": 21.0,
+    "o2_max_atmos_distance_pts": 16.0,
+    "o2_max_atmos_verdict": "GAP",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   }
+  },
+  "o2_by_investigation": {
+   "PSI-23": {
+    "n": 2,
+    "min": 21.0,
+    "max": 21.0,
+    "title": "Advanced Combustion via Microgravity Experiments-Structure and Response of Spherical Diffusion Flames",
+    "doi": "10.60555/k57n-p030"
+   }
+  }
+ },
+ "Hydrogen (20% bottle) [, 25% CH4, with He]": {
+  "material": "Hydrogen (20% bottle) [, 25% CH4, with He]",
+  "n_o2_rows": 1,
+  "n_p_rows": 0,
+  "o2": {
+   "min": 21.0,
+   "max": 21.0,
+   "levels": [
+    21.0
+   ]
+  },
+  "pressure": {
+   "verdict": "NOT RECORDED",
+   "min": null,
+   "max": null
+  },
+  "atmospheres": {
+   "ISS": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 0.0,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 20136"
+    ],
+    "o2_verdict": "COVERED",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "PARTIAL \u2014 O2 covered, pressure NOT RECORDED in PSI tables"
+   },
+   "Orion": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 5.5,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 20136"
+    ],
+    "o2_verdict": "GAP",
+    "o2_max_atmos_nearest": 21.0,
+    "o2_max_atmos_distance_pts": 9.0,
+    "o2_max_atmos_verdict": "GAP",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   },
+   "Exploration": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 13.0,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 20136"
+    ],
+    "o2_verdict": "GAP",
+    "o2_max_atmos_nearest": 21.0,
+    "o2_max_atmos_distance_pts": 16.0,
+    "o2_max_atmos_verdict": "GAP",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   }
+  },
+  "o2_by_investigation": {
+   "PSI-23": {
+    "n": 1,
+    "min": 21.0,
+    "max": 21.0,
+    "title": "Advanced Combustion via Microgravity Experiments-Structure and Response of Spherical Diffusion Flames",
+    "doi": "10.60555/k57n-p030"
+   }
+  }
+ },
+ "Hydrogen (25% bottle) [, 20% CH4, with He]": {
+  "material": "Hydrogen (25% bottle) [, 20% CH4, with He]",
+  "n_o2_rows": 1,
+  "n_p_rows": 0,
+  "o2": {
+   "min": 21.0,
+   "max": 21.0,
+   "levels": [
+    21.0
+   ]
+  },
+  "pressure": {
+   "verdict": "NOT RECORDED",
+   "min": null,
+   "max": null
+  },
+  "atmospheres": {
+   "ISS": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 0.0,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 20132"
+    ],
+    "o2_verdict": "COVERED",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "PARTIAL \u2014 O2 covered, pressure NOT RECORDED in PSI tables"
+   },
+   "Orion": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 5.5,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 20132"
+    ],
+    "o2_verdict": "GAP",
+    "o2_max_atmos_nearest": 21.0,
+    "o2_max_atmos_distance_pts": 9.0,
+    "o2_max_atmos_verdict": "GAP",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   },
+   "Exploration": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 13.0,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 20132"
+    ],
+    "o2_verdict": "GAP",
+    "o2_max_atmos_nearest": 21.0,
+    "o2_max_atmos_distance_pts": 16.0,
+    "o2_max_atmos_verdict": "GAP",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   }
+  },
+  "o2_by_investigation": {
+   "PSI-23": {
+    "n": 1,
+    "min": 21.0,
+    "max": 21.0,
+    "title": "Advanced Combustion via Microgravity Experiments-Structure and Response of Spherical Diffusion Flames",
+    "doi": "10.60555/k57n-p030"
+   }
+  }
+ },
+ "Hydrogen (30% bottle) [, 15% CH4, with He]": {
+  "material": "Hydrogen (30% bottle) [, 15% CH4, with He]",
+  "n_o2_rows": 1,
+  "n_p_rows": 0,
+  "o2": {
+   "min": 30.0,
+   "max": 30.0,
+   "levels": [
+    30.0
+   ]
+  },
+  "pressure": {
+   "verdict": "NOT RECORDED",
+   "min": null,
+   "max": null
+  },
+  "atmospheres": {
+   "ISS": {
+    "o2_nearest": 30.0,
+    "o2_distance_pts": 9.0,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 20142"
+    ],
+    "o2_verdict": "GAP",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   },
+   "Orion": {
+    "o2_nearest": 30.0,
+    "o2_distance_pts": 3.5,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 20142"
+    ],
+    "o2_verdict": "GAP",
+    "o2_max_atmos_nearest": 30.0,
+    "o2_max_atmos_distance_pts": 0.0,
+    "o2_max_atmos_verdict": "COVERED",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   },
+   "Exploration": {
+    "o2_nearest": 30.0,
+    "o2_distance_pts": 4.0,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 20142"
+    ],
+    "o2_verdict": "GAP",
+    "o2_max_atmos_nearest": 30.0,
+    "o2_max_atmos_distance_pts": 7.0,
+    "o2_max_atmos_verdict": "GAP",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   }
+  },
+  "o2_by_investigation": {
+   "PSI-23": {
+    "n": 1,
+    "min": 30.0,
+    "max": 30.0,
+    "title": "Advanced Combustion via Microgravity Experiments-Structure and Response of Spherical Diffusion Flames",
+    "doi": "10.60555/k57n-p030"
+   }
+  }
+ },
+ "Hydrogen (35% bottle) [with He]": {
+  "material": "Hydrogen (35% bottle) [with He]",
+  "n_o2_rows": 2,
+  "n_p_rows": 0,
+  "o2": {
+   "min": 21.0,
+   "max": 30.0,
+   "levels": [
+    21.0,
+    30.0
+   ]
+  },
+  "pressure": {
+   "verdict": "NOT RECORDED",
+   "min": null,
+   "max": null
+  },
+  "atmospheres": {
+   "ISS": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 0.0,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 20190"
+    ],
+    "o2_verdict": "COVERED",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "PARTIAL \u2014 O2 covered, pressure NOT RECORDED in PSI tables"
+   },
+   "Orion": {
+    "o2_nearest": 30.0,
+    "o2_distance_pts": 3.5,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 20190"
+    ],
+    "o2_verdict": "COVERED",
+    "o2_max_atmos_nearest": 30.0,
+    "o2_max_atmos_distance_pts": 0.0,
+    "o2_max_atmos_verdict": "COVERED",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "PARTIAL \u2014 O2 covered, pressure NOT RECORDED in PSI tables"
+   },
+   "Exploration": {
+    "o2_nearest": 30.0,
+    "o2_distance_pts": 4.0,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 20190"
+    ],
+    "o2_verdict": "GAP",
+    "o2_max_atmos_nearest": 30.0,
+    "o2_max_atmos_distance_pts": 7.0,
+    "o2_max_atmos_verdict": "GAP",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   }
+  },
+  "o2_by_investigation": {
+   "PSI-23": {
+    "n": 2,
+    "min": 21.0,
+    "max": 30.0,
+    "title": "Advanced Combustion via Microgravity Experiments-Structure and Response of Spherical Diffusion Flames",
+    "doi": "10.60555/k57n-p030"
+   }
+  }
+ },
+ "Hydrogen (44.4% bottle) [with CH4]": {
+  "material": "Hydrogen (44.4% bottle) [with CH4]",
+  "n_o2_rows": 1,
+  "n_p_rows": 0,
+  "o2": {
+   "min": 21.0,
+   "max": 21.0,
+   "levels": [
+    21.0
+   ]
+  },
+  "pressure": {
+   "verdict": "NOT RECORDED",
+   "min": null,
+   "max": null
+  },
+  "atmospheres": {
+   "ISS": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 0.0,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 20006"
+    ],
+    "o2_verdict": "COVERED",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "PARTIAL \u2014 O2 covered, pressure NOT RECORDED in PSI tables"
+   },
+   "Orion": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 5.5,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 20006"
+    ],
+    "o2_verdict": "GAP",
+    "o2_max_atmos_nearest": 21.0,
+    "o2_max_atmos_distance_pts": 9.0,
+    "o2_max_atmos_verdict": "GAP",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   },
+   "Exploration": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 13.0,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 20006"
+    ],
+    "o2_verdict": "GAP",
+    "o2_max_atmos_nearest": 21.0,
+    "o2_max_atmos_distance_pts": 16.0,
+    "o2_max_atmos_verdict": "GAP",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   }
+  },
+  "o2_by_investigation": {
+   "PSI-23": {
+    "n": 1,
+    "min": 21.0,
+    "max": 21.0,
+    "title": "Advanced Combustion via Microgravity Experiments-Structure and Response of Spherical Diffusion Flames",
+    "doi": "10.60555/k57n-p030"
+   }
+  }
+ },
+ "Hydrogen (45% bottle) [with He]": {
+  "material": "Hydrogen (45% bottle) [with He]",
+  "n_o2_rows": 2,
+  "n_p_rows": 0,
+  "o2": {
+   "min": 21.0,
+   "max": 30.0,
+   "levels": [
+    21.0,
+    30.0
+   ]
+  },
+  "pressure": {
+   "verdict": "NOT RECORDED",
+   "min": null,
+   "max": null
+  },
+  "atmospheres": {
+   "ISS": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 0.0,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 20155"
+    ],
+    "o2_verdict": "COVERED",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "PARTIAL \u2014 O2 covered, pressure NOT RECORDED in PSI tables"
+   },
+   "Orion": {
+    "o2_nearest": 30.0,
+    "o2_distance_pts": 3.5,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 20155"
+    ],
+    "o2_verdict": "COVERED",
+    "o2_max_atmos_nearest": 30.0,
+    "o2_max_atmos_distance_pts": 0.0,
+    "o2_max_atmos_verdict": "COVERED",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "PARTIAL \u2014 O2 covered, pressure NOT RECORDED in PSI tables"
+   },
+   "Exploration": {
+    "o2_nearest": 30.0,
+    "o2_distance_pts": 4.0,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 20155"
+    ],
+    "o2_verdict": "GAP",
+    "o2_max_atmos_nearest": 30.0,
+    "o2_max_atmos_distance_pts": 7.0,
+    "o2_max_atmos_verdict": "GAP",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   }
+  },
+  "o2_by_investigation": {
+   "PSI-23": {
+    "n": 2,
+    "min": 21.0,
+    "max": 30.0,
+    "title": "Advanced Combustion via Microgravity Experiments-Structure and Response of Spherical Diffusion Flames",
+    "doi": "10.60555/k57n-p030"
+   }
+  }
+ },
+ "Hydrogen (66.7% bottle) [with CH4]": {
+  "material": "Hydrogen (66.7% bottle) [with CH4]",
+  "n_o2_rows": 1,
+  "n_p_rows": 0,
+  "o2": {
+   "min": 21.0,
+   "max": 21.0,
+   "levels": [
+    21.0
+   ]
+  },
+  "pressure": {
+   "verdict": "NOT RECORDED",
+   "min": null,
+   "max": null
+  },
+  "atmospheres": {
+   "ISS": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 0.0,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 20013"
+    ],
+    "o2_verdict": "COVERED",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "PARTIAL \u2014 O2 covered, pressure NOT RECORDED in PSI tables"
+   },
+   "Orion": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 5.5,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 20013"
+    ],
+    "o2_verdict": "GAP",
+    "o2_max_atmos_nearest": 21.0,
+    "o2_max_atmos_distance_pts": 9.0,
+    "o2_max_atmos_verdict": "GAP",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   },
+   "Exploration": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 13.0,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 20013"
+    ],
+    "o2_verdict": "GAP",
+    "o2_max_atmos_nearest": 21.0,
+    "o2_max_atmos_distance_pts": 16.0,
+    "o2_max_atmos_verdict": "GAP",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   }
+  },
+  "o2_by_investigation": {
+   "PSI-23": {
+    "n": 1,
+    "min": 21.0,
+    "max": 21.0,
+    "title": "Advanced Combustion via Microgravity Experiments-Structure and Response of Spherical Diffusion Flames",
+    "doi": "10.60555/k57n-p030"
+   }
+  }
+ },
+ "Methane (100% bottle)": {
+  "material": "Methane (100% bottle)",
+  "n_o2_rows": 5,
+  "n_p_rows": 0,
+  "o2": {
+   "min": 25.0,
+   "max": 40.0,
+   "levels": [
+    25.0,
+    34.0,
+    40.0
+   ]
+  },
+  "pressure": {
+   "verdict": "NOT RECORDED",
+   "min": null,
+   "max": null
+  },
+  "atmospheres": {
+   "ISS": {
+    "o2_nearest": 25.0,
+    "o2_distance_pts": 4.0,
+    "o2_nearest_row": [
+     "PSI-20",
+     "Test day 5"
+    ],
+    "o2_verdict": "GAP",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   },
+   "Orion": {
+    "o2_nearest": 25.0,
+    "o2_distance_pts": 1.5,
+    "o2_nearest_row": [
+     "PSI-20",
+     "Test day 5"
+    ],
+    "o2_verdict": "COVERED",
+    "o2_max_atmos_nearest": 34.0,
+    "o2_max_atmos_distance_pts": 4.0,
+    "o2_max_atmos_verdict": "COVERED",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "PARTIAL \u2014 O2 covered, pressure NOT RECORDED in PSI tables"
+   },
+   "Exploration": {
+    "o2_nearest": 34.0,
+    "o2_distance_pts": 0.0,
+    "o2_nearest_row": [
+     "PSI-20",
+     "Test day 5"
+    ],
+    "o2_verdict": "COVERED",
+    "o2_max_atmos_nearest": 34.0,
+    "o2_max_atmos_distance_pts": 3.0,
+    "o2_max_atmos_verdict": "COVERED",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "PARTIAL \u2014 O2 covered, pressure NOT RECORDED in PSI tables"
+   }
+  },
+  "o2_by_investigation": {
+   "PSI-20": {
+    "n": 5,
+    "min": 25.0,
+    "max": 40.0,
+    "title": "Advanced Combustion via Microgravity Experiments - Burning Rate Emulator",
+    "doi": "10.60555/vb93-3y72"
+   }
+  }
+ },
+ "Methane (45% bottle) [with He]": {
+  "material": "Methane (45% bottle) [with He]",
+  "n_o2_rows": 2,
+  "n_p_rows": 0,
+  "o2": {
+   "min": 21.0,
+   "max": 30.0,
+   "levels": [
+    21.0,
+    30.0
+   ]
+  },
+  "pressure": {
+   "verdict": "NOT RECORDED",
+   "min": null,
+   "max": null
+  },
+  "atmospheres": {
+   "ISS": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 0.0,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 20160"
+    ],
+    "o2_verdict": "COVERED",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "PARTIAL \u2014 O2 covered, pressure NOT RECORDED in PSI tables"
+   },
+   "Orion": {
+    "o2_nearest": 30.0,
+    "o2_distance_pts": 3.5,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 20160"
+    ],
+    "o2_verdict": "COVERED",
+    "o2_max_atmos_nearest": 30.0,
+    "o2_max_atmos_distance_pts": 0.0,
+    "o2_max_atmos_verdict": "COVERED",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "PARTIAL \u2014 O2 covered, pressure NOT RECORDED in PSI tables"
+   },
+   "Exploration": {
+    "o2_nearest": 30.0,
+    "o2_distance_pts": 4.0,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 20160"
+    ],
+    "o2_verdict": "GAP",
+    "o2_max_atmos_nearest": 30.0,
+    "o2_max_atmos_distance_pts": 7.0,
+    "o2_max_atmos_verdict": "GAP",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   }
+  },
+  "o2_by_investigation": {
+   "PSI-23": {
+    "n": 2,
+    "min": 21.0,
+    "max": 30.0,
+    "title": "Advanced Combustion via Microgravity Experiments-Structure and Response of Spherical Diffusion Flames",
+    "doi": "10.60555/k57n-p030"
+   }
+  }
+ },
+ "Methane (45% bottle) [with N2]": {
+  "material": "Methane (45% bottle) [with N2]",
+  "n_o2_rows": 1,
+  "n_p_rows": 0,
+  "o2": {
+   "min": 21.0,
+   "max": 21.0,
+   "levels": [
+    21.0
+   ]
+  },
+  "pressure": {
+   "verdict": "NOT RECORDED",
+   "min": null,
+   "max": null
+  },
+  "atmospheres": {
+   "ISS": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 0.0,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 19304"
+    ],
+    "o2_verdict": "COVERED",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "PARTIAL \u2014 O2 covered, pressure NOT RECORDED in PSI tables"
+   },
+   "Orion": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 5.5,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 19304"
+    ],
+    "o2_verdict": "GAP",
+    "o2_max_atmos_nearest": 21.0,
+    "o2_max_atmos_distance_pts": 9.0,
+    "o2_max_atmos_verdict": "GAP",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   },
+   "Exploration": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 13.0,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 19304"
+    ],
+    "o2_verdict": "GAP",
+    "o2_max_atmos_nearest": 21.0,
+    "o2_max_atmos_distance_pts": 16.0,
+    "o2_max_atmos_verdict": "GAP",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   }
+  },
+  "o2_by_investigation": {
+   "PSI-23": {
+    "n": 1,
+    "min": 21.0,
+    "max": 21.0,
+    "title": "Advanced Combustion via Microgravity Experiments-Structure and Response of Spherical Diffusion Flames",
+    "doi": "10.60555/k57n-p030"
+   }
+  }
+ },
+ "Methane (45% bottle) [with N3]": {
+  "material": "Methane (45% bottle) [with N3]",
+  "n_o2_rows": 1,
+  "n_p_rows": 0,
+  "o2": {
+   "min": 30.0,
+   "max": 30.0,
+   "levels": [
+    30.0
+   ]
+  },
+  "pressure": {
+   "verdict": "NOT RECORDED",
+   "min": null,
+   "max": null
+  },
+  "atmospheres": {
+   "ISS": {
+    "o2_nearest": 30.0,
+    "o2_distance_pts": 9.0,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 19308"
+    ],
+    "o2_verdict": "GAP",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   },
+   "Orion": {
+    "o2_nearest": 30.0,
+    "o2_distance_pts": 3.5,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 19308"
+    ],
+    "o2_verdict": "GAP",
+    "o2_max_atmos_nearest": 30.0,
+    "o2_max_atmos_distance_pts": 0.0,
+    "o2_max_atmos_verdict": "COVERED",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   },
+   "Exploration": {
+    "o2_nearest": 30.0,
+    "o2_distance_pts": 4.0,
+    "o2_nearest_row": [
+     "PSI-23",
+     "Test day 19308"
+    ],
+    "o2_verdict": "GAP",
+    "o2_max_atmos_nearest": 30.0,
+    "o2_max_atmos_distance_pts": 7.0,
+    "o2_max_atmos_verdict": "GAP",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   }
+  },
+  "o2_by_investigation": {
+   "PSI-23": {
+    "n": 1,
+    "min": 30.0,
+    "max": 30.0,
+    "title": "Advanced Combustion via Microgravity Experiments-Structure and Response of Spherical Diffusion Flames",
+    "doi": "10.60555/k57n-p030"
+   }
+  }
+ },
+ "PMMA + Nomex (mixed sample)": {
+  "material": "PMMA + Nomex (mixed sample)",
+  "n_o2_rows": 1,
+  "n_p_rows": 0,
+  "o2": {
+   "min": 22.1,
+   "max": 22.1,
+   "levels": [
+    22.1
+   ]
+  },
+  "pressure": {
+   "verdict": "NOT RECORDED",
+   "min": null,
+   "max": null
+  },
+  "atmospheres": {
+   "ISS": {
+    "o2_nearest": 22.1,
+    "o2_distance_pts": 1.1,
+    "o2_nearest_row": [
+     "PSI-99",
+     "Sample 2-7"
+    ],
+    "o2_verdict": "GAP",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   },
+   "Orion": {
+    "o2_nearest": 22.1,
+    "o2_distance_pts": 4.4,
+    "o2_nearest_row": [
+     "PSI-99",
+     "Sample 2-7"
+    ],
+    "o2_verdict": "GAP",
+    "o2_max_atmos_nearest": 22.1,
+    "o2_max_atmos_distance_pts": 7.9,
+    "o2_max_atmos_verdict": "GAP",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   },
+   "Exploration": {
+    "o2_nearest": 22.1,
+    "o2_distance_pts": 11.9,
+    "o2_nearest_row": [
+     "PSI-99",
+     "Sample 2-7"
+    ],
+    "o2_verdict": "GAP",
+    "o2_max_atmos_nearest": 22.1,
+    "o2_max_atmos_distance_pts": 14.9,
+    "o2_max_atmos_verdict": "GAP",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   }
+  },
+  "o2_by_investigation": {
+   "PSI-99": {
+    "n": 1,
+    "min": 22.1,
+    "max": 22.1,
+    "title": "Spacecraft Fire Experiment-II",
+    "doi": "10.60555/2chp-m469"
+   }
+  }
+ },
+ "Propane": {
+  "material": "Propane",
+  "n_o2_rows": 119,
+  "n_p_rows": 99,
+  "o2": {
+   "min": 18.0,
+   "max": 85.0,
+   "levels": [
+    18.0,
+    19.0,
+    20.893,
+    20.913,
+    21.0,
+    21.024,
+    21.05,
+    21.062,
+    21.065,
+    21.068,
+    21.07,
+    21.14,
+    21.159,
+    21.18,
+    21.2,
+    21.222,
+    21.25,
+    21.637,
+    21.64,
+    21.644,
+    21.659,
+    21.666,
+    21.667,
+    21.669,
+    21.67,
+    30.0,
+    35.24,
+    35.368,
+    35.568,
+    35.75,
+    36.642,
+    37.124,
+    37.653,
+    37.71,
+    37.766,
+    37.954,
+    38.679,
+    38.951,
+    39.127,
+    39.404,
+    39.477,
+    39.54,
+    39.726,
+    39.96,
+    40.0,
+    50.0,
+    85.0
+   ]
+  },
+  "pressure": {
+   "min": 8.001021269999999,
+   "max": 48.00612762
+  },
+  "atmospheres": {
+   "ISS": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 0.0,
+    "o2_nearest_row": [
+     "PSI-159",
+     "Test 21137 D1"
+    ],
+    "o2_verdict": "COVERED",
+    "pressure_nearest_psi": 14.7,
+    "pressure_distance_psi": 0.0,
+    "pressure_nearest_row": [
+     "PSI-159",
+     "Test 21112 F1"
+    ],
+    "pressure_verdict": "COVERED",
+    "overall": "TESTED"
+   },
+   "Orion": {
+    "o2_nearest": 30.0,
+    "o2_distance_pts": 3.5,
+    "o2_nearest_row": [
+     "PSI-159",
+     "Test 21242 P1"
+    ],
+    "o2_verdict": "COVERED",
+    "o2_max_atmos_nearest": 30.0,
+    "o2_max_atmos_distance_pts": 0.0,
+    "o2_max_atmos_verdict": "COVERED",
+    "pressure_nearest_psi": 8.0,
+    "pressure_distance_psi": 2.2,
+    "pressure_nearest_row": [
+     "PSI-159",
+     "Test 21235 K1"
+    ],
+    "pressure_verdict": "COVERED",
+    "overall": "TESTED"
+   },
+   "Exploration": {
+    "o2_nearest": 35.2403076,
+    "o2_distance_pts": 1.24,
+    "o2_nearest_row": [
+     "PSI-159",
+     "Test 21137 A7"
+    ],
+    "o2_verdict": "COVERED",
+    "o2_max_atmos_nearest": 37.124223099999995,
+    "o2_max_atmos_distance_pts": 0.12,
+    "o2_max_atmos_verdict": "COVERED",
+    "pressure_nearest_psi": 8.0,
+    "pressure_distance_psi": 0.2,
+    "pressure_nearest_row": [
+     "PSI-159",
+     "Test 21235 K1"
+    ],
+    "pressure_verdict": "COVERED",
+    "overall": "TESTED"
+   }
+  },
+  "o2_by_investigation": {
+   "PSI-10": {
+    "n": 20,
+    "min": 40.0,
+    "max": 40.0,
+    "title": "Advanced Combustion via Microgravity Experiments / Flame Design",
+    "doi": "10.60555/w4zy-bt45"
+   },
+   "PSI-159": {
+    "n": 99,
+    "min": 18.0,
+    "max": 85.0,
+    "title": "Advanced Combustion via Microgravity Experiments / Cool Flames Investigation with Gases",
+    "doi": "10.60555/cyt1-kh64"
+   }
+  }
+ },
+ "Silicone": {
+  "material": "Silicone",
+  "n_o2_rows": 4,
+  "n_p_rows": 0,
+  "o2": {
+   "min": 21.5,
+   "max": 22.1,
+   "levels": [
+    21.5,
+    22.1
+   ]
+  },
+  "pressure": {
+   "verdict": "NOT RECORDED",
+   "min": null,
+   "max": null
+  },
+  "atmospheres": {
+   "ISS": {
+    "o2_nearest": 21.5,
+    "o2_distance_pts": 0.5,
+    "o2_nearest_row": [
+     "PSI-99",
+     "Sample 2-1"
+    ],
+    "o2_verdict": "GAP",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   },
+   "Orion": {
+    "o2_nearest": 22.1,
+    "o2_distance_pts": 4.4,
+    "o2_nearest_row": [
+     "PSI-99",
+     "Sample 2-2"
+    ],
+    "o2_verdict": "GAP",
+    "o2_max_atmos_nearest": 22.1,
+    "o2_max_atmos_distance_pts": 7.9,
+    "o2_max_atmos_verdict": "GAP",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   },
+   "Exploration": {
+    "o2_nearest": 22.1,
+    "o2_distance_pts": 11.9,
+    "o2_nearest_row": [
+     "PSI-99",
+     "Sample 2-2"
+    ],
+    "o2_verdict": "GAP",
+    "o2_max_atmos_nearest": 22.1,
+    "o2_max_atmos_distance_pts": 14.9,
+    "o2_max_atmos_verdict": "GAP",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   }
+  },
+  "o2_by_investigation": {
+   "PSI-99": {
+    "n": 4,
+    "min": 21.5,
+    "max": 22.1,
+    "title": "Spacecraft Fire Experiment-II",
+    "doi": "10.60555/2chp-m469"
+   }
+  }
+ },
+ "Wax candle": {
+  "material": "Wax candle",
+  "n_o2_rows": 1,
+  "n_p_rows": 0,
+  "o2": {
+   "min": 17.4,
+   "max": 17.4,
+   "levels": [
+    17.4
+   ]
+  },
+  "pressure": {
+   "verdict": "NOT RECORDED",
+   "min": null,
+   "max": null
+  },
+  "atmospheres": {
+   "ISS": {
+    "o2_nearest": 17.4,
+    "o2_distance_pts": 3.6,
+    "o2_nearest_row": [
+     "PSI-25",
+     "Test F4"
+    ],
+    "o2_verdict": "GAP",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   },
+   "Orion": {
+    "o2_nearest": 17.4,
+    "o2_distance_pts": 9.1,
+    "o2_nearest_row": [
+     "PSI-25",
+     "Test F4"
+    ],
+    "o2_verdict": "GAP",
+    "o2_max_atmos_nearest": 17.4,
+    "o2_max_atmos_distance_pts": 12.6,
+    "o2_max_atmos_verdict": "GAP",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   },
+   "Exploration": {
+    "o2_nearest": 17.4,
+    "o2_distance_pts": 16.6,
+    "o2_nearest_row": [
+     "PSI-25",
+     "Test F4"
+    ],
+    "o2_verdict": "GAP",
+    "o2_max_atmos_nearest": 17.4,
+    "o2_max_atmos_distance_pts": 19.6,
+    "o2_max_atmos_verdict": "GAP",
+    "pressure_verdict": "NOT RECORDED",
+    "overall": "GAP (O2)"
+   }
+  },
+  "o2_by_investigation": {
+   "PSI-25": {
+    "n": 1,
+    "min": 17.4,
+    "max": 17.4,
+    "title": "Burning and Suppression of Solids - II",
+    "doi": "10.60555/4qc4-de67"
+   }
+  }
+ },
+ "n-Dodecane (C12H26)": {
+  "material": "n-Dodecane (C12H26)",
+  "n_o2_rows": 22,
+  "n_p_rows": 22,
+  "o2": {
+   "min": 17.0,
+   "max": 21.0,
+   "levels": [
+    17.0,
+    21.0
+   ]
+  },
+  "pressure": {
+   "min": 14.6959,
+   "max": 29.3918
+  },
+  "atmospheres": {
+   "ISS": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 0.0,
+    "o2_nearest_row": [
+     "PSI-39",
+     "Flex 1206"
+    ],
+    "o2_verdict": "COVERED",
+    "pressure_nearest_psi": 14.7,
+    "pressure_distance_psi": 0.0,
+    "pressure_nearest_row": [
+     "PSI-39",
+     "Flex 1206"
+    ],
+    "pressure_verdict": "COVERED",
+    "overall": "TESTED"
+   },
+   "Orion": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 5.5,
+    "o2_nearest_row": [
+     "PSI-39",
+     "Flex 1206"
+    ],
+    "o2_verdict": "GAP",
+    "o2_max_atmos_nearest": 21.0,
+    "o2_max_atmos_distance_pts": 9.0,
+    "o2_max_atmos_verdict": "GAP",
+    "pressure_nearest_psi": 14.7,
+    "pressure_distance_psi": 4.5,
+    "pressure_nearest_row": [
+     "PSI-39",
+     "Flex 1206"
+    ],
+    "pressure_verdict": "GAP",
+    "overall": "GAP (O2 + pressure)"
+   },
+   "Exploration": {
+    "o2_nearest": 21.0,
+    "o2_distance_pts": 13.0,
+    "o2_nearest_row": [
+     "PSI-39",
+     "Flex 1206"
+    ],
+    "o2_verdict": "GAP",
+    "o2_max_atmos_nearest": 21.0,
+    "o2_max_atmos_distance_pts": 16.0,
+    "o2_max_atmos_verdict": "GAP",
+    "pressure_nearest_psi": 14.7,
+    "pressure_distance_psi": 6.5,
+    "pressure_nearest_row": [
+     "PSI-39",
+     "Flex 1206"
+    ],
+    "pressure_verdict": "GAP",
+    "overall": "GAP (O2 + pressure)"
+   }
+  },
+  "o2_by_investigation": {
+   "PSI-39": {
+    "n": 22,
+    "min": 17.0,
+    "max": 21.0,
+    "title": "Cool Flames Investigation",
+    "doi": "10.60555/m6pj-a914"
+   }
+  }
+ }
+}

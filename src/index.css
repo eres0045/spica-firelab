@@ -1,0 +1,22 @@
+@import "tailwindcss";
+
+html {
+  background-color: #000000;
+}
+
+body {
+  background-color: #000000;
+  color: #f1f5f9;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Text over the truly-transparent glass panel / starfield: a soft dark
+ * shadow keeps it readable over bright stars without a solid backing. */
+.glass-text {
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9), 0 0 10px rgba(0, 0, 0, 0.6);
+}
+
+canvas {
+  display: block;
+}
