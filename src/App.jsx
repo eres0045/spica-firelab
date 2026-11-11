@@ -33,11 +33,12 @@
  * All verdict math lives in lib/data.js and is untouched by this
  * rebuild; no number here is invented.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ATMOSPHERES, ATMOSPHERE_KEYS, HEADLINE_MATERIALS,
-  fmt, getVerdict, getLiveVerdict, materialClass,
+  buildBrief, fmt, getVerdict, getLiveVerdict, materialClass,
   gapNumber, KIND_LABEL, KIND_COLOR,
+  tryApi, tryApiVerdict, tryApiLiveVerdict, tryApiBrief,
 } from './lib/data.js';
 import FireLab3D, { CAMERA_PRESETS } from './components/FireLab3D.jsx';
 
@@ -108,14 +109,67 @@ export default function App() {
   // verdict line.
   const [panelHidden, setPanelHidden] = useState(false);
 
+  // ---- Live verdict engine (Flask API, Nov 2026) --------------------
+  // apiBase: undefined = still probing, null = no backend reachable,
+  // string = working base ('' = same origin, i.e. the Netlify deploy).
+  // Verdicts come from the API when it answers and fall back to the
+  // bundled PSI data otherwise — the static deploys keep working with
+  // no server up. The API verdict object has exactly the bundled
+  // shape, so the readout line renders identically either way.
+  const [apiBase, setApiBase] = useState(undefined);
+  const [apiVerdict, setApiVerdict] = useState(null); // {key, verdict}
+  const apiVerdictAbort = useRef(null);
+  useEffect(() => {
+    let dead = false;
+    tryApi().then((r) => { if (!dead) setApiBase(r ? r.base : null); });
+    return () => { dead = true; };
+  }, []);
+  const apiLive = apiBase !== undefined && apiBase !== null;
+  const verdictKey = `${material}|${atmosphere}|${o2}|${pressure}`;
+  useEffect(() => {
+    if (!apiLive) return undefined;
+    const t = setTimeout(() => {
+      if (apiVerdictAbort.current) apiVerdictAbort.current.abort();
+      const ctrl = new AbortController();
+      apiVerdictAbort.current = ctrl;
+      const p = atmosphere === 'custom'
+        ? tryApiLiveVerdict(material, o2, pressure, apiBase)
+        : tryApiVerdict(material, atmosphere, apiBase);
+      p.then((v) => {
+        if (ctrl.signal.aborted) return;
+        setApiVerdict(v ? { key: verdictKey, verdict: v } : null);
+      });
+    }, 200);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiLive, apiBase, verdictKey]);
+
+  // ---- Mission brief --------------------------------------------------
+  // One printable brief per atmosphere: materials ranked by coverage
+  // with gap numbers and full citations. Data comes from /api/brief
+  // when the API is live, else buildBrief() from the bundled data —
+  // same numbers either way.
+  const [briefOpen, setBriefOpen] = useState(false);
+  const [brief, setBrief] = useState(null);
+  const briefAtmosphere = atmosphere === 'custom' ? nearestPreset(o2) : atmosphere;
+  const openBrief = async () => {
+    setBriefOpen(true);
+    setBrief(null);
+    let b = null;
+    if (apiLive) b = await tryApiBrief(briefAtmosphere, apiBase);
+    setBrief(b || buildBrief(briefAtmosphere));
+  };
+
   // Preset conditions use the pre-computed verdicts (exact citations);
   // custom slider conditions use the live computation from the same data.
-  const verdict = useMemo(
+  const localVerdict = useMemo(
     () => (atmosphere === 'custom'
       ? getLiveVerdict(material, o2, pressure)
       : getVerdict(material, atmosphere)),
     [material, atmosphere, o2, pressure],
   );
+  const verdict = apiVerdict && apiVerdict.key === verdictKey
+    ? apiVerdict.verdict : localVerdict;
   const scatterAtmosphere = atmosphere === 'custom' ? nearestPreset(o2) : atmosphere;
   const atm = atmosphere === 'custom' ? null : ATMOSPHERES[atmosphere];
   const conditionShort = atmosphere === 'custom'
@@ -193,6 +247,13 @@ export default function App() {
             {verdictText.split('→')[0]}→{' '}
             <span style={{ color: verdictColor }}>{verdictText.split('→')[1]?.trim()}</span>
           </p>
+          {/* Verdict source — tiny, honest: live API when it answers,
+              bundled PSI data when it doesn't. Never hidden. */}
+          {apiBase !== undefined && (
+            <p className="mt-1 text-[10px] leading-none text-slate-500">
+              {apiLive ? '● live API — verdict computed from NASA PSI data' : '● on-device data — API unreachable, bundled PSI data'}
+            </p>
+          )}
 
           {panelOpen && (
             <>
@@ -307,6 +368,19 @@ export default function App() {
                 ))}
               </div>
 
+              {/* Mission brief — printable ranking + citations for this
+                  atmosphere. Data from /api/brief when live, else the
+                  bundled data (same numbers either way). */}
+              <button
+                type="button"
+                onClick={openBrief}
+                aria-label="Open mission brief"
+                className="mt-3 block w-full rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-left text-sm font-semibold text-amber-200 hover:border-amber-300"
+              >
+                📋 Mission brief — {ATMOSPHERES[briefAtmosphere].name} {ATMOSPHERES[briefAtmosphere].o2}% O&#8322;
+                <span className="block text-xs font-normal text-slate-400">Ranked materials, gaps &amp; citations — printable</span>
+              </button>
+
               <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
                 Flame is illustrative — verdicts come from real NASA PSI test data.
               </p>
@@ -317,6 +391,90 @@ export default function App() {
           )}
         </div>
       </div>
+      )}
+
+      {/* Mission brief modal — printable. Print CSS (index.css) hides
+          the 3D scene and panel and shows only this card. */}
+      {briefOpen && (
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 p-3" role="dialog" aria-modal="true" aria-label="Mission brief">
+          <div className="brief-print max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-white/20 bg-slate-900/95 p-4 shadow-2xl backdrop-blur-md">
+            {brief ? (
+              <>
+                <div className="flex items-start justify-between gap-2">
+                  <h2 className="text-base font-bold text-slate-100">
+                    Mission brief — {ATMOSPHERES[brief.atmosphere].name} {brief.conditions.o2_pct}% O&#8322; @ {brief.conditions.pressure_psi} psi
+                  </h2>
+                  <button type="button" onClick={() => setBriefOpen(false)} aria-label="Close mission brief"
+                    className="no-print shrink-0 rounded-md border border-white/15 bg-white/[0.08] px-2 py-0.5 text-xs font-bold text-slate-200">✕</button>
+                </div>
+                <p className="mt-1 text-xs text-slate-400">
+                  {brief.conditions.blurb}
+                  {atmosphere === 'custom' ? ` · Custom cabin — brief for the nearest preset, ${ATMOSPHERES[briefAtmosphere].name}.` : ''}
+                </p>
+                <h3 className="mt-3 text-sm font-semibold uppercase tracking-wider text-slate-400">Cabin materials — ranked by gap</h3>
+                <table className="mt-1 w-full text-left text-[13px] leading-snug">
+                  <thead>
+                    <tr className="text-slate-500"><th className="py-1 pr-2">Material</th><th className="py-1 pr-2">Verdict</th><th className="py-1 pr-2">Gap</th><th className="py-1">Nearest real test</th></tr>
+                  </thead>
+                  <tbody>
+                    {brief.cabin.map((e) => (
+                      <tr key={e.material} className="border-t border-white/10">
+                        <td className="py-1 pr-2 font-semibold text-slate-100">{e.label}</td>
+                        <td className="py-1 pr-2" style={{ color: KIND_COLOR[e.kind] }}>{KIND_LABEL[e.kind]}</td>
+                        <td className="py-1 pr-2 tabular-nums text-slate-200">{e.gap ? `${fmt(e.gap, e.gapUnit === 'psi' ? 2 : 1)} ${e.gapUnit}` : '—'}</td>
+                        <td className="py-1 text-slate-300">
+                          {e.gapAxis === 'pressure' ? e.nearest_pressure_test : e.nearest_o2_test}
+                          {(e.gapAxis === 'pressure' ? e.nearest_pressure_doi : e.nearest_o2_doi) ? ` · DOI ${(e.gapAxis === 'pressure' ? e.nearest_pressure_doi : e.nearest_o2_doi)}` : ''}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <h3 className="mt-3 text-sm font-semibold uppercase tracking-wider text-slate-400">Gases — separate group</h3>
+                <table className="mt-1 w-full text-left text-[13px] leading-snug">
+                  <tbody>
+                    {brief.gases.map((e) => (
+                      <tr key={e.material} className="border-t border-white/10">
+                        <td className="py-1 pr-2 font-semibold text-slate-100">{e.label}</td>
+                        <td className="py-1 pr-2" style={{ color: KIND_COLOR[e.kind] }}>{KIND_LABEL[e.kind]}</td>
+                        <td className="py-1 pr-2 tabular-nums text-slate-200">{e.gap ? `${fmt(e.gap, e.gapUnit === 'psi' ? 2 : 1)} ${e.gapUnit}` : '—'}</td>
+                        <td className="py-1 text-slate-300">
+                          {e.gapAxis === 'pressure' ? e.nearest_pressure_test : e.nearest_o2_test}
+                          {(e.gapAxis === 'pressure' ? e.nearest_pressure_doi : e.nearest_o2_doi) ? ` · DOI ${(e.gapAxis === 'pressure' ? e.nearest_pressure_doi : e.nearest_o2_doi)}` : ''}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <h3 className="mt-3 text-sm font-semibold uppercase tracking-wider text-slate-400">Citations — the tests behind these numbers</h3>
+                <ul className="mt-1 list-disc space-y-1 pl-5 text-[12px] text-slate-300">
+                  {brief.citations.map((c) => (
+                    <li key={c.accession}>{c.accession} · {c.title}{c.doi ? ` · DOI ${c.doi}` : ''}</li>
+                  ))}
+                </ul>
+                <h3 className="mt-3 text-sm font-semibold uppercase tracking-wider text-slate-400">Reports &amp; data</h3>
+                <ul className="mt-1 list-disc space-y-1 pl-5 text-[12px] text-slate-300">
+                  {brief.reports.map((r) => (
+                    <li key={r.ref}>{r.ref} — {r.note}</li>
+                  ))}
+                </ul>
+                <p className="mt-3 text-[11px] leading-relaxed text-slate-400">{brief.disclaimer}</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+                  Data: NASA PSI, {brief.snapshot.rows} rows, {brief.snapshot.investigations} investigations, cleaned {brief.snapshot.cleaned_at}.
+                  {apiLive ? ' Served live by the verdict-engine API.' : ' Served from the bundled PSI data (API unreachable).'}
+                </p>
+                <div className="no-print mt-3 flex gap-2">
+                  <button type="button" onClick={() => window.print()} aria-label="Print mission brief"
+                    className="rounded-lg border border-amber-400/40 bg-amber-400/20 px-3 py-1.5 text-sm font-semibold text-amber-200">🖨 Print brief</button>
+                  <button type="button" onClick={() => setBriefOpen(false)}
+                    className="rounded-lg border border-white/15 bg-white/[0.05] px-3 py-1.5 text-sm font-semibold text-slate-200">Close</button>
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-slate-300">Loading brief…</p>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

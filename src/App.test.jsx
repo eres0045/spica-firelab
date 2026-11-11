@@ -8,9 +8,13 @@
  * testable here. Verdict MATH is asserted through the one-line readout
  * (same getVerdict/getLiveVerdict values the old card showed).
  */
-import { describe, it, expect } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { render, screen, fireEvent, within, waitFor } from '@testing-library/react';
 import App from './App.jsx';
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe('App — minimal fire lab (jsdom has no WebGL)', () => {
   it('renders the title chip, the panel and the SIBAL + ISS PARTIAL verdict line on load', () => {
@@ -137,5 +141,58 @@ describe('App — minimal fire lab (jsdom has no WebGL)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Show fire controls' }));
     expect(screen.getByLabelText('Oxygen percent')).toBeTruthy();
     expect(screen.getByText(/PARTIAL · O₂ covered/)).toBeTruthy();
+  });
+
+  it('live API: the UI renders the API verdict, not the bundled one', async () => {
+    // The mock API deliberately returns a DIFFERENT verdict for the
+    // default SIBAL + ISS state (a GAP the bundled data does not have),
+    // so the test proves the line comes from the API response.
+    const apiVerdict = {
+      material: 'SIBAL fabric', atmosphere: 'ISS', kind: 'GAP_O2',
+      overall: 'GAP (O2)', o2_nearest: 22.1, o2_distance_pts: 11.9,
+      o2_nearest_row: ['PSI-99', 'Sample 2-5'], o2_verdict: 'GAP',
+      pressure_verdict: 'NOT RECORDED',
+    };
+    const fetchMock = vi.fn(async (url) => {
+      const u = String(url);
+      if (u.includes('/api/verdict')) return { ok: true, json: async () => apiVerdict };
+      if (u.includes('/api/materials')) return { ok: true, json: async () => ({ materials: [] }) };
+      if (u.includes('/api/scatter')) return { ok: true, json: async () => ({ points: [] }) };
+      if (u.includes('/api/ranking')) return { ok: true, json: async () => ({ cabin: [], gases: [] }) };
+      return { ok: false, json: async () => ({}) };
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(<App />);
+    // Probe succeeds -> the live-API tag appears...
+    expect(await screen.findByText(/live API/)).toBeTruthy();
+    // ...and the verdict line switches to the API's value.
+    await waitFor(() => expect(screen.getByText(/GAP 11\.9 O₂ pts/)).toBeTruthy());
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/api/verdict?material=SIBAL'), expect.anything());
+  });
+
+  it('API down: the verdict line falls back to the bundled PSI data', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('no server'); }));
+    render(<App />);
+    expect(await screen.findByText(/on-device data/)).toBeTruthy();
+    // Same numbers as ever — the fallback is the bundled data.
+    expect(screen.getByText(/PARTIAL · O₂ covered/)).toBeTruthy();
+  });
+
+  it('mission brief button opens a printable brief with the ranking + citations', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('no server'); }));
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'Open mission brief' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Mission brief' });
+    expect(within(dialog).getByText(/Mission brief — ISS/)).toBeTruthy();
+    // ISS ranking: SIBAL is PARTIAL, nearest test T25, DOI cited.
+    expect(within(dialog).getByText('PSI-25 · Test T25 · DOI 10.60555/4qc4-de67')).toBeTruthy();
+    // Citations section lists the investigations; reports list BASS-II.
+    expect(within(dialog).getByText(/PSI-25 · Burning and Suppression of Solids - II/)).toBeTruthy();
+    expect(within(dialog).getByText(/BASS-II — NASA\/TM-20210011385/)).toBeTruthy();
+    expect(within(dialog).getByText(/Coverage, not certification/)).toBeTruthy();
+    expect(within(dialog).getByRole('button', { name: 'Print mission brief' })).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Close mission brief' }));
+    expect(screen.queryByRole('dialog', { name: 'Mission brief' })).toBeNull();
   });
 });

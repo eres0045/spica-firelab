@@ -430,16 +430,25 @@ export function fmt(n, digits = 2) {
   return String(r);
 }
 
-/* ---- Build-day API wiring (Flask, not built yet) -----------------------
+/* ---- Live API wiring (Flask verdict engine) ---------------------------
  * tryApi() probes the backend once; if every endpoint answers, the app
  * uses live data, otherwise it keeps the bundled JSON. Nothing in the
- * components depends on which source answered. */
-const API_BASE = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE) || '';
-async function fetchJson(path, timeoutMs = 1500) {
+ * components depends on which source answered.
+ *
+ * Candidate bases, in order: VITE_API_BASE when set (local dev:
+ * http://127.0.0.1:5000, or the vite dev proxy on same origin), then
+ * same-origin (the Netlify deploy, via the /api/* rewrite), then the
+ * Netlify URL outright (the GitHub Pages deploy, cross-origin — the
+ * API sends Access-Control-Allow-Origin: *). One build works on both
+ * hosts; the static deploys MUST keep working with no backend. */
+const ENV_BASE = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE) || '';
+export const API_CANDIDATES = ENV_BASE ? [ENV_BASE] : ['', 'https://spica-firelab.netlify.app'];
+export const LIVE_API_URL = 'https://spica-firelab.netlify.app';
+async function fetchJson(base, path, timeoutMs = 1500) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    const res = await fetch(`${API_BASE}${path}`, { signal: ctrl.signal });
+    const res = await fetch(`${base}${path}`, { signal: ctrl.signal });
     if (!res.ok) return null;
     return await res.json();
   } catch {
@@ -449,14 +458,78 @@ async function fetchJson(path, timeoutMs = 1500) {
   }
 }
 export async function tryApi() {
-  const [materials, scatter, ranking] = await Promise.all([
-    fetchJson('/api/materials'),
-    fetchJson('/api/scatter?material=all'),
-    fetchJson('/api/ranking?atmosphere=Exploration'),
-  ]);
-  if (!materials || !scatter || !ranking) return null;
-  return { materials, scatter, ranking, base: API_BASE || '(same origin)' };
+  for (const base of API_CANDIDATES) {
+    const [materials, scatter, ranking] = await Promise.all([
+      fetchJson(base, '/api/materials'),
+      fetchJson(base, '/api/scatter?material=all'),
+      fetchJson(base, '/api/ranking?atmosphere=Exploration'),
+    ]);
+    if (materials && scatter && ranking) return { materials, scatter, ranking, base };
+  }
+  return null;
 }
-export async function tryApiVerdict(material, atmosphereKey) {
-  return fetchJson(`/api/verdict?material=${encodeURIComponent(material)}&atmosphere=${atmosphereKey}`);
+export async function tryApiVerdict(material, atmosphereKey, base) {
+  return fetchJson(base, `/api/verdict?material=${encodeURIComponent(material)}&atmosphere=${atmosphereKey}`);
+}
+export async function tryApiLiveVerdict(material, o2, pressure, base) {
+  return fetchJson(base, `/api/verdict?material=${encodeURIComponent(material)}&o2=${o2}&pressure=${pressure}`);
+}
+export async function tryApiBrief(atmosphereKey, base) {
+  return fetchJson(base, `/api/brief?atmosphere=${atmosphereKey}`, 3000);
+}
+
+/** NASA technical reports behind the headline investigations (further
+ *  reading — the DOIs in the data are the primary citations). */
+export const BRIEF_REPORTS = [
+  { ref: 'NASA PSI — Physical Sciences Informatics (psi.nasa.gov)', note: 'Public NASA data system; the 2,012 cleaned rows come from its Combustion Science investigations (BASS, BASS-II, FLEX, FLEX-2, SAFFIRE-I/II, CFI). No login required.', url: 'https://psi.nasa.gov/' },
+  { ref: 'BASS-II — NASA/TM-20210011385', note: 'Burning and Suppression of Solids - II (PSI-25): SIBAL, Nomex and PMMA microgravity flame tests.', url: 'https://ntrs.nasa.gov/citations/20210011385' },
+  { ref: 'FLEX — NASA/TP-2015-216046, Table IX', note: 'Flame Extinguishment Experiment (PSI-69): methanol and heptane droplet tests, including extinction outcomes.', url: 'https://ntrs.nasa.gov/citations/20150019316' },
+];
+
+export const COVERAGE_DISCLAIMER = 'Coverage, not certification: TESTED means the condition was actually run in microgravity; GAP means no test ever ran there. Nothing here certifies a material as safe to fly.';
+
+/** Mission brief built from the bundled data — the offline fallback for
+ *  /api/brief. Same math as the backend (getRanking + getVerdict), so
+ *  the brief reads identically with or without the API. */
+export function buildBrief(atmosphereKey) {
+  const atm = ATMOSPHERES[atmosphereKey];
+  const ranking = getRanking(atmosphereKey);
+  const entry = (e) => {
+    const v = e.verdict;
+    const o2Row = v.o2_nearest_row;
+    const pRow = v.pressure_nearest_row;
+    return {
+      material: e.material, label: e.label, className: e.className,
+      kind: e.kind, overall: e.overall, gap: e.gap, gapUnit: e.gapUnit, gapAxis: e.gapAxis,
+      line: verdictLine(v),
+      nearest_o2_test: o2Row ? `${o2Row[0]} · ${o2Row[1]}` : null,
+      nearest_o2_value: v.o2_nearest,
+      nearest_o2_doi: o2Row ? doiFor(v, o2Row[0]) : null,
+      nearest_pressure_test: pRow ? `${pRow[0]} · ${pRow[1]}` : null,
+      nearest_pressure_value: v.pressure_nearest_psi,
+      nearest_pressure_doi: pRow ? doiFor(v, pRow[0]) : null,
+    };
+  };
+  const allDois = {};
+  for (const group of [ranking.cabin, ranking.gases]) {
+    for (const e of group) {
+      for (const [acc, inv] of Object.entries(e.verdict.doiByInvestigation || {})) {
+        allDois[acc] = { accession: acc, title: inv.title, doi: inv.doi, url: inv.doi ? `https://doi.org/${inv.doi}` : null };
+      }
+    }
+  }
+  return {
+    atmosphere: atmosphereKey,
+    conditions: { o2_pct: atm.o2, o2_max_pct: atm.o2Max, pressure_psi: atm.pressure, blurb: atm.blurb },
+    cabin: ranking.cabin.map(entry),
+    gases: ranking.gases.map(entry),
+    citations: Object.values(allDois),
+    reports: BRIEF_REPORTS,
+    disclaimer: COVERAGE_DISCLAIMER,
+    snapshot: {
+      cleaned_at: cleaned.meta?.cleaned_at, rows: cleaned.rows.length,
+      investigations: new Set(cleaned.rows.map((r) => r.accession)).size,
+      tables: (cleaned.tables || []).length, source: 'NASA PSI (Physical Sciences Informatics), public data',
+    },
+  };
 }

@@ -20,3 +20,28 @@ body {
 canvas {
   display: block;
 }
+
+/* Mission brief printing: hide the 3D scene + panel, print only the
+ * brief card (light text becomes black on white for the paper). */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .brief-print,
+  .brief-print * {
+    visibility: visible;
+    color: #000 !important;
+    background: transparent !important;
+    border-color: #999 !important;
+    text-shadow: none !important;
+  }
+  .brief-print {
+    position: absolute;
+    inset: 0;
+    max-height: none;
+    overflow: visible;
+  }
+  .no-print {
+    display: none !important;
+  }
+}

@@ -9,6 +9,21 @@
   publish = "dist"
   command = "npm run build"
 
+# Verdict-engine API (Flask logic ported to a pure-stdlib Python
+# function — no install step, no card, no separate host). The function
+# lives in netlify/functions/api/ and is served at /api/*; the GitHub
+# Pages deploy calls https://spica-firelab.netlify.app cross-origin
+# instead (the function sends Access-Control-Allow-Origin: *).
+[functions]
+  directory = "netlify/functions"
+
+# The /api/* rewrite MUST come before the SPA fallback below — Netlify
+# takes the first matching redirect.
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
