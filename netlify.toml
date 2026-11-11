@@ -1,0 +1,55 @@
+# Netlify deploy config for the SPICA "The 34% Question" fire lab.
+# Publish the Vite build output; the app has no client-side routes, but
+# the SPA fallback keeps deep links / refreshes serving index.html.
+# Static assets are content-hashed by Vite (or never change in place),
+# so they get immutable long caching. index.html itself is never cached,
+# so a new deploy is picked up immediately. No quality-affecting
+# settings here — CDN gzip/brotli is lossless transport compression.
+[build]
+  publish = "dist"
+  command = "npm run build"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/models/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/draco/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/textures/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/images/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/sprites/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/hdr/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

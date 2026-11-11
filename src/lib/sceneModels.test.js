@@ -92,6 +92,6 @@ describe('scene assets shipped in public/ (SCENE_MODELS.md)', () => {
     expect(iss.length).toBeGreaterThan(1000000); // ~2.58 MB
     const interior = readFileSync(join(pub, 'models/iss-interior-scan.glb'));
     expect(interior.slice(0, 4).toString('ascii')).toBe('glTF');
-    expect(interior.length).toBeGreaterThan(1000000); // ~5.91 MB (texture resized to 2048)
+    expect(interior.length).toBeGreaterThan(1000000); // ~8.16 MB (4096 texture, 2026-11-11 blur fix)
   });
 });

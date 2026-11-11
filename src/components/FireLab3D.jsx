@@ -61,7 +61,7 @@
  * burn. The safety verdict next to the glovebox comes from real NASA PSI
  * test data only (see data.js getLiveVerdict). The label on screen says so.
  */
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
@@ -159,7 +159,12 @@ const CAM_EXTERIOR = { view: 'exterior', pos: [4.4, 2.3, 6.4], target: [-1.5, -1
 // diagonal views are blocked by racks at ~1.1 units). The scan is also
 // scaled up (see loadInteriorScan) so the corridor is ~5 wide and the
 // 3.6-wide rack cabinet fits INSIDE it instead of poking through the walls.
-const CAM_INTERIOR = { view: 'interior', pos: [0.1, 0.1, 4.6], target: [0, 0.1, -0.7], min: 1.2, max: 6 };
+const CAM_INTERIOR = { view: 'interior', pos: [0.1, 0.1, 4.6], target: [0, 0.1, -0.7], min: 1.2, max: 9 };
+// Interior zoom-out max raised 6 -> 9 (2026-11-11, Ronit: "can't zoom
+// out"): the camera lands at 5.3, so max 6 allowed one small step and
+// then the - button did nothing. The corridor is ~21.8 long on its axis,
+// so backing to 9 stays inside the module — verified by screenshot
+// (scripts/zoom-probe.mjs max-out shot: no wall clip, no black void).
 
 /**
  * Camera presets — the ONLY camera control (they live in the panel's
@@ -202,12 +207,19 @@ export default function FireLab3D({ o2, pressure, flow, material, materialClass,
   const webglOK = detectWebGL();
   const stateRef = useRef({ o2, pressure, flow, material, materialClass, atmosphereKey, sceneView, cameraCmd });
   stateRef.current = { o2, pressure, flow, material, materialClass, atmosphereKey, sceneView, cameraCmd };
+  // Loading overlay — first paint must never be a black screen. The
+  // station note clears when the CORE models (ISS + astronaut) have
+  // settled (loaded or failed) and the first frame has rendered; the
+  // interior note appears only while the on-demand scan decodes after an
+  // Inside switch. Lazy secondary models never block the overlay.
+  // (jsdom has no WebGL, so this never renders in the unit tests.)
+  const [loadNote, setLoadNote] = useState({ label: 'Loading the station…', done: 0, total: 2, kind: 'station' });
 
   useEffect(() => {
     const mount = mountRef.current;
     if (!mount || !webglOK) return;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(mount.clientWidth, mount.clientHeight);
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -266,6 +278,17 @@ export default function FireLab3D({ o2, pressure, flow, material, materialClass,
     //     reflections and a key light. Loads async; the scene builds first
     //     and the reflections arrive when the HDR decodes. ---
     const texLoader = new THREE.TextureLoader();
+    // Anisotropy (2026-11-11, blur fix): textures viewed at grazing
+    // angles blur badly at the default anisotropy of 1 — the scan walls
+    // from inside the corridor, and Earth's limb. Max anisotropy sharpens
+    // them at zero quality cost (it only changes texture sampling, never
+    // the texels). Sprites are billboarded face-on, so they don't need it.
+    const maxAniso = renderer.capabilities.getMaxAnisotropy();
+    const loadTex = (url) => {
+      const t = texLoader.load(pub(url));
+      t.anisotropy = maxAniso;
+      return t;
+    };
     let envRT = null;
     let envCancelled = false;
     new RGBELoader().load(pub('hdr/qwantani_night_puresky_1k.hdr'), (tex) => {
@@ -349,13 +372,13 @@ export default function FireLab3D({ o2, pressure, flow, material, materialClass,
     const earth = new THREE.Mesh(
       new THREE.SphereGeometry(6.0, 48, 32),
       new THREE.MeshPhongMaterial({
-        map: texLoader.load(pub('textures/earth-atmos-2048.jpg')),
-        specularMap: texLoader.load(pub('textures/earth-specular-2048.jpg')),
+        map: loadTex('textures/earth-atmos-2048.jpg'),
+        specularMap: loadTex('textures/earth-specular-2048.jpg'),
         specular: new THREE.Color(0x333333),
         shininess: 18,
-        normalMap: texLoader.load(pub('textures/earth-normal-2048.jpg')),
+        normalMap: loadTex('textures/earth-normal-2048.jpg'),
         normalScale: new THREE.Vector2(0.6, 0.6),
-        emissiveMap: texLoader.load(pub('textures/earth-lights-2048.png')),
+        emissiveMap: loadTex('textures/earth-lights-2048.png'),
         emissive: new THREE.Color(0xffffff),
         emissiveIntensity: 0.7,
       }),
@@ -382,7 +405,7 @@ export default function FireLab3D({ o2, pressure, flow, material, materialClass,
     // --- MOON (real texture, same set) — small, far, up-right. ---
     const moon = new THREE.Mesh(
       new THREE.SphereGeometry(0.8, 32, 24),
-      new THREE.MeshPhongMaterial({ map: texLoader.load(pub('textures/moon-1024.jpg')), shininess: 4 }),
+      new THREE.MeshPhongMaterial({ map: loadTex('textures/moon-1024.jpg'), shininess: 4 }),
     );
     moon.position.set(-4.6, 3.2, -6.5); // upper-left, clear of the ISS
     scene.add(moon);
@@ -394,6 +417,43 @@ export default function FireLab3D({ o2, pressure, flow, material, materialClass,
     const gltfLoader = new GLTFLoader();
     gltfLoader.setDRACOLoader(draco);
     let sceneCancelled = false;
+
+    // --- Loading overlay state (see the useState above): the effect
+    //     mirrors the note in `currentNote` so every callback here can
+    //     decide whether a note is showing without reading React state.
+    //     Core = ISS + astronaut; a failed core model settles too, so a
+    //     missing GLB can never hang the overlay. ---
+    let currentNote = { label: 'Loading the station…', done: 0, total: 2, kind: 'station' };
+    const setNote = (n) => { currentNote = n; setLoadNote(n); };
+    const coreSettled = new Set();
+    let firstFrameDone = false;
+    const noteCoreSettled = (name) => {
+      if (coreSettled.has(name)) return;
+      coreSettled.add(name);
+      if (currentNote && currentNote.kind === 'station') {
+        if (coreSettled.size >= 2) {
+          if (firstFrameDone) setNote(null);
+          // else the animate loop clears it right after the first frame
+        } else {
+          setNote({ label: 'Loading the station…', done: coreSettled.size, total: 2, kind: 'station' });
+        }
+      }
+    };
+
+    // Lazy secondary models (2026-11-11, no-quality optimisation): Crew
+    // Dragon, shuttle, Canadarm and LRO are exterior props that are NOT
+    // needed for first paint — they load on idle (or within 2.5 s) after
+    // the core scene is up. They still call markModelLoaded, so the
+    // shot/probe scripts wait for them the same way; first paint just
+    // doesn't wait for them. No model is dropped — all four still appear.
+    const loadOnIdle = (fn) => {
+      const run = () => { if (!sceneCancelled) fn(); };
+      if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+        window.requestIdleCallback(run, { timeout: 2500 });
+      } else {
+        setTimeout(run, 800);
+      }
+    };
 
     // ISS group — probed at mount: uperesito (CC-BY) if a human dropped it
     // in, else NASA's iss-a.glb (public domain). Silent on load failure.
@@ -416,7 +476,8 @@ export default function FireLab3D({ o2, pressure, flow, material, materialClass,
         normaliseGltf(gltf.scene, 2.6);
         issGroup.add(gltf.scene);
         markModelLoaded('iss');
-      }, undefined, () => { /* silent — the scene works without the ISS */ });
+        noteCoreSettled('iss');
+      }, undefined, () => { noteCoreSettled('iss'); /* silent — the scene works without the ISS */ });
     })();
 
     // Astronaut — "Animated Floating Astronaut" by LasquetiSpice (CC-BY,
@@ -444,7 +505,8 @@ export default function FireLab3D({ o2, pressure, flow, material, materialClass,
         astroMixer.clipAction(clip).play();
       }
       markModelLoaded('astronaut');
-    }, undefined, () => { /* silent — the scene works without the figure */ });
+      noteCoreSettled('astronaut');
+    }, undefined, () => { noteCoreSettled('astronaut'); /* silent — the scene works without the figure */ });
 
     // Crew Dragon (dannzjs, CC-BY) — small recognisable capsule docked
     // just below-right of the ISS in the exterior view. Bobs in phase
@@ -454,12 +516,12 @@ export default function FireLab3D({ o2, pressure, flow, material, materialClass,
     dragonGroup.position.set(0.85, 1.35, -3.3);
     dragonGroup.rotation.y = 0.6;
     scene.add(dragonGroup);
-    gltfLoader.load(pub('models/crew-dragon.glb'), (gltf) => {
+    loadOnIdle(() => gltfLoader.load(pub('models/crew-dragon.glb'), (gltf) => {
       if (sceneCancelled) return;
       normaliseGltf(gltf.scene, 0.75);
       dragonGroup.add(gltf.scene);
       markModelLoaded('dragon');
-    }, undefined, () => { /* silent — the scene works without the Dragon */ });
+    }, undefined, () => { /* silent — the scene works without the Dragon */ }));
 
     // JAXA Int-Ball (pergamond, CC-BY) — the real ISS interior drone, a
     // small floating prop for the interior view only. Eager-loaded at
@@ -486,12 +548,12 @@ export default function FireLab3D({ o2, pressure, flow, material, materialClass,
     shuttleGroup.rotation.y = 0.9;
     shuttleGroup.rotation.z = 0.08;
     scene.add(shuttleGroup);
-    gltfLoader.load(pub('models/nasa-shuttle-D.glb'), (gltf) => {
+    loadOnIdle(() => gltfLoader.load(pub('models/nasa-shuttle-D.glb'), (gltf) => {
       if (sceneCancelled) return;
       normaliseGltf(gltf.scene, 1.9);
       shuttleGroup.add(gltf.scene);
       markModelLoaded('shuttle');
-    }, undefined, () => { /* silent — the scene works without the shuttle */ });
+    }, undefined, () => { /* silent — the scene works without the shuttle */ }));
 
     // Canadarm (Remote Manipulator System) — along the ISS truss at the
     // left end, aligned with the station (rotation.y matches the ISS),
@@ -500,24 +562,24 @@ export default function FireLab3D({ o2, pressure, flow, material, materialClass,
     canadarmGroup.position.set(-2.3, 1.75, -3.85);
     canadarmGroup.rotation.y = -0.4;
     scene.add(canadarmGroup);
-    gltfLoader.load(pub('models/nasa-canadarm.glb'), (gltf) => {
+    loadOnIdle(() => gltfLoader.load(pub('models/nasa-canadarm.glb'), (gltf) => {
       if (sceneCancelled) return;
       normaliseGltf(gltf.scene, 1.2);
       canadarmGroup.add(gltf.scene);
       markModelLoaded('canadarm');
-    }, undefined, () => { /* silent — the scene works without the arm */ });
+    }, undefined, () => { /* silent — the scene works without the arm */ }));
 
     // Lunar Reconnaissance Orbiter (A) — small distant satellite prop
     // near the Moon. Slow spin + gentle bob; exterior view only.
     const lroGroup = new THREE.Group();
     lroGroup.position.set(-2.9, 2.4, -5.8);
     scene.add(lroGroup);
-    gltfLoader.load(pub('models/nasa-lro-A.glb'), (gltf) => {
+    loadOnIdle(() => gltfLoader.load(pub('models/nasa-lro-A.glb'), (gltf) => {
       if (sceneCancelled) return;
       normaliseGltf(gltf.scene, 0.55);
       lroGroup.add(gltf.scene);
       markModelLoaded('lro');
-    }, undefined, () => { /* silent — the scene works without the LRO */ });
+    }, undefined, () => { /* silent — the scene works without the LRO */ }));
 
     // ISS interior scan (patrick-, CC-BY) — lazy: the GLB itself loads
     // only the first time the user switches to the interior view, and a
@@ -542,6 +604,17 @@ export default function FireLab3D({ o2, pressure, flow, material, materialClass,
         // 13.5+ units). See scripts/scan-raycast-probe.mjs for the
         // measurement.
         normaliseGltf(gltf.scene, 21.8);
+        // Same anisotropy fix for the scan's own texture (the GLB map
+        // stretched over a whole module, viewed at grazing angles from
+        // inside the corridor — the main blur cause, see loadTex above).
+        gltf.scene.traverse((o) => {
+          const mats = Array.isArray(o.material) ? o.material : (o.material ? [o.material] : []);
+          for (const m of mats) {
+            for (const k of ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'emissiveMap', 'aoMap']) {
+              if (m[k]) m[k].anisotropy = maxAniso;
+            }
+          }
+        });
         group.add(gltf.scene);
         // Photogrammetry scans get mushy up close — the camera stays at
         // module scale (see CAM_INTERIOR) and never pushes into the mesh.
@@ -550,8 +623,10 @@ export default function FireLab3D({ o2, pressure, flow, material, materialClass,
         interiorRef.group = group;
         interiorRef.loaded = true;
         markModelLoaded('interior');
+        if (currentNote && currentNote.kind === 'interior') setNote(null);
       }, undefined, () => {
         interiorRef.loading = false; // silent — keep the close-up fallback
+        if (currentNote && currentNote.kind === 'interior') setNote(null);
       });
     };
 
@@ -839,7 +914,14 @@ export default function FireLab3D({ o2, pressure, flow, material, materialClass,
       gloveboxGroup.visible = interior;
       hazeGroup.visible = interior;
       if (interiorRef.group) interiorRef.group.visible = interior;
-      if (interior) loadInteriorScan();
+      if (interior) {
+        // On-demand scan: show the interior note only when no station
+        // note is already covering the screen (core still loading).
+        if (!interiorRef.loaded && !interiorRef.loading && currentNote === null) {
+          setNote({ label: 'Loading the station interior…', done: 0, total: 1, kind: 'interior', indeterminate: true });
+        }
+        loadInteriorScan();
+      }
     };
 
     const clock = new THREE.Clock();
@@ -861,6 +943,7 @@ export default function FireLab3D({ o2, pressure, flow, material, materialClass,
 
     const animate = () => {
       raf = requestAnimationFrame(animate);
+      const t0 = performance.now();
       const dt = Math.min(clock.getDelta(), 0.05);
       const t = clock.elapsedTime;
       const s = stateRef.current;
@@ -1038,9 +1121,35 @@ export default function FireLab3D({ o2, pressure, flow, material, materialClass,
       intBallGroup.rotation.y = t * 0.3;
 
       controls.update();
+      const tRender = performance.now();
       renderer.render(scene, camera);
+      // Debug readout (like __spicaModels / __spicaCam): per-frame JS vs
+      // raster split, so a probe can tell a JS bottleneck from a GPU one.
+      // Capped ring buffer; two performance.now() calls per frame.
+      if (typeof window !== 'undefined') {
+        const rows = (window.__spicaFrameTimes = window.__spicaFrameTimes || []);
+        rows.push({ js: tRender - t0, render: performance.now() - tRender });
+        if (rows.length > 600) rows.splice(0, rows.length - 600);
+      }
+      if (!firstFrameDone) {
+        firstFrameDone = true;
+        if (coreSettled.size >= 2 && currentNote && currentNote.kind === 'station') setNote(null);
+      }
     };
     animate();
+
+    // Pause the loop while the tab is hidden — the GPU and battery do no
+    // work for a scene nobody is watching. dt is clamped to 0.05 s, so
+    // the flame and tweens resume cleanly on return.
+    const onVisibility = () => {
+      if (document.hidden) {
+        cancelAnimationFrame(raf);
+        raf = 0;
+      } else if (!raf) {
+        animate();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
 
     const onResize = () => {
       const w = mount.clientWidth;
@@ -1055,6 +1164,7 @@ export default function FireLab3D({ o2, pressure, flow, material, materialClass,
 
     return () => {
       cancelAnimationFrame(raf);
+      document.removeEventListener('visibilitychange', onVisibility);
       ro.disconnect();
       envCancelled = true;
       sceneCancelled = true;
@@ -1093,6 +1203,26 @@ export default function FireLab3D({ o2, pressure, flow, material, materialClass,
   return (
     <div className="relative h-full w-full">
       <div ref={mountRef} className="absolute inset-0" />
+      {loadNote && (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+          <div className="rounded-2xl border border-white/20 bg-black/45 px-5 py-4 text-center shadow-xl backdrop-blur-md">
+            <p className="text-sm font-medium text-slate-100">{loadNote.label}</p>
+            <div className="mx-auto mt-3 h-1.5 w-48 overflow-hidden rounded-full bg-white/15">
+              {loadNote.indeterminate ? (
+                <div className="h-full w-1/3 animate-pulse rounded-full bg-sky-400" />
+              ) : (
+                <div
+                  className="h-full rounded-full bg-sky-400 transition-all duration-500"
+                  style={{ width: `${(loadNote.done / loadNote.total) * 100}%` }}
+                />
+              )}
+            </div>
+            {!loadNote.indeterminate && (
+              <p className="mt-2 text-[11px] text-slate-400">{loadNote.done} of {loadNote.total} ready</p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
