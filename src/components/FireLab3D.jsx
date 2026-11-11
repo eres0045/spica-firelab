@@ -13,7 +13,10 @@
  * - Earth: photographic Blue Marble textures on a sphere (three.js example
  *   set, NASA-derived, MIT) — map + specular + normal + night-lights
  *   emissive — low in frame, with a blue atmosphere halo. Moon: small
- *   textured sphere. Generated starfield behind it all.
+ *   textured sphere, upper-left. Sun: real solar surface texture
+ *   (Solar System Scope 2k_sun.jpg, CC BY 4.0) on a sphere + warm glow
+ *   sprite, far upper-right, opposite the Moon. Generated starfield
+ *   behind it all.
  * - ISS: the uperesito Sketchfab model (CC-BY), landed 2026-11-11 via the
  *   Sketchfab Download API as `public/models/iss-uperesito.glb`. Probed
  *   with a Range GET + glTF-magic check (a HEAD probe cannot tell present
@@ -409,6 +412,30 @@ export default function FireLab3D({ o2, pressure, flow, material, materialClass,
     );
     moon.position.set(-4.6, 3.2, -6.5); // upper-left, clear of the ISS
     scene.add(moon);
+
+    // --- SUN (Solar System Scope 2k_sun.jpg, CC BY 4.0) — real solar
+    //     surface texture on a sphere + warm glow sprite, exactly like
+    //     Earth. Far upper-right of the default frame (opposite the Moon,
+    //     upper-left), clear of the ISS / Earth / astronaut / glovebox:
+    //     position (1.8, 2.3, -28.5) lands at NDC ~(0.70, 0.65) on a
+    //     1440x900 desktop — the empty black quadrant above the station.
+    //     MeshBasicMaterial (unlit — the Sun IS a light source, never
+    //     shaded) with toneMapped off so the disc stays bright. One sphere
+    //     + one sprite, no extra assets. Exterior only (see applyView). ---
+    const sunGroup = new THREE.Group();
+    sunGroup.position.set(1.8, 2.3, -28.5);
+    const sun = new THREE.Mesh(
+      new THREE.SphereGeometry(3.0, 48, 32),
+      new THREE.MeshBasicMaterial({ map: loadTex('textures/2k_sun.jpg'), toneMapped: false }),
+    );
+    sunGroup.add(sun);
+    const sunGlow = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: texLight, color: 0xffc46b, transparent: true, opacity: 0.5,
+      blending: THREE.AdditiveBlending, depthWrite: false,
+    }));
+    sunGlow.scale.setScalar(3.0 * 3.0);
+    sunGroup.add(sunGlow);
+    scene.add(sunGroup);
 
     // --- GLTF models: ISS + astronaut + (lazy) interior scan. Draco
     //     decoder is bundled locally under /draco/ — never CDN. ---
@@ -905,6 +932,7 @@ export default function FireLab3D({ o2, pressure, flow, material, materialClass,
       prevViewRef.view = interior ? 'interior' : 'exterior';
       earthGroup.visible = !interior;
       moon.visible = !interior;
+      sunGroup.visible = !interior;
       issGroup.visible = !interior;
       dragonGroup.visible = !interior;
       shuttleGroup.visible = !interior;
@@ -1108,6 +1136,7 @@ export default function FireLab3D({ o2, pressure, flow, material, materialClass,
       starMat.opacity = starField.baseOpacity * (0.9 + 0.1 * Math.sin(t * 0.8));
       starBright.mat.opacity = starBright.baseOpacity * (0.85 + 0.15 * Math.sin(t * 1.3 + 1));
       earth.rotation.y = t * 0.02;
+      sun.rotation.y = t * 0.01;
       issGroup.position.y = 1.7 + Math.sin(t * 0.35) * 0.05;
       dragonGroup.position.y = 1.35 + Math.sin(t * 0.35) * 0.05;
       shuttleGroup.position.y = 1.1 + Math.sin(t * 0.35) * 0.05;

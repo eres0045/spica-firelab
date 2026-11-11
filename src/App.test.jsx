@@ -24,7 +24,7 @@ describe('App — minimal fire lab (jsdom has no WebGL)', () => {
     expect(screen.getByText(/The 3D fire lab needs WebGL/)).toBeTruthy();
     // Honesty + credits lines live in the panel now.
     expect(screen.getByText(/Flame is illustrative — verdicts come from real NASA PSI test data\./)).toBeTruthy();
-    expect(screen.getByText(/Models CC-BY: uperesito \(ISS\) · Patrick \(interior\) · LasquetiSpice \(astronaut\) · dannzjs \(Dragon\) · pergamond \(Int-Ball\) · Data: NASA PSI/)).toBeTruthy();
+    expect(screen.getByText(/Models CC-BY: uperesito \(ISS\) · Patrick \(interior\) · LasquetiSpice \(astronaut\) · dannzjs \(Dragon\) · pergamond \(Int-Ball\) · Sun texture: Solar System Scope, CC BY 4\.0 · Data: NASA PSI/)).toBeTruthy();
   });
 
   it('the only UI is the panel + title + camera section — no dashboard anywhere', () => {
