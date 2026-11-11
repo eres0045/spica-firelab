@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import * as THREE from 'three';
 import { render, screen } from '@testing-library/react';
-import FireLab3D, { flameParams, CAMERA_PRESETS, zoomDistance, clampInteriorCamera, INTERIOR_CLAMP, FLAME_CENTER, DESTINY, destinyInteriorTransform, WALK, normalizeYaw, clampPitch, walkVectors, walkStep, clampWalkPosition } from './FireLab3D.jsx';
+import FireLab3D, { flameParams, CAMERA_PRESETS, zoomDistance, clampInteriorCamera, INTERIOR_CLAMP, FLAME_CENTER, DESTINY, destinyInteriorTransform, WALK, normalizeYaw, clampPitch, lookOrientationFromDirection, walkVectors, walkStep, clampWalkPosition } from './FireLab3D.jsx';
 
 describe('flameParams — the flame visibly responds to the controls', () => {
   it('grows with O2 (small blue ball at low O2, big orange ball at high O2)', () => {
@@ -295,6 +295,57 @@ describe('walk mode — 360° first-person inside Destiny', () => {
     expect(Math.abs(clampedRack[0])).toBeLessThanOrEqual(0.56);
     expect(clampedRack[2]).toBeGreaterThanOrEqual(0.3);
     expect(clampedRack[2]).toBeLessThanOrEqual(5.5);
+  });
+});
+
+describe('interior look — 360° drag without Walk (lookOrientationFromDirection)', () => {
+  // 2026-11-12, Ronit: "it won't let me" turn inside without Walk —
+  // the orbit clamp froze the camera, so the interior now looks
+  // first-person by default. The look resets to face a framing target
+  // on every preset landing; the reset is this pure function.
+
+  it('faces −Z at yaw 0 when looking down the module axis at the glovebox', () => {
+    const o = lookOrientationFromDirection([0, 0, -1]);
+    expect(o.yaw).toBeCloseTo(0, 10);
+    expect(o.pitch).toBeCloseTo(0, 10);
+  });
+
+  it('faces +Z at yaw ±π when turned all the way around', () => {
+    const o = lookOrientationFromDirection([0, 0, 1]);
+    expect(Math.abs(o.yaw)).toBeCloseTo(Math.PI, 10);
+    expect(o.pitch).toBeCloseTo(0, 10);
+  });
+
+  it('faces ±X at yaw ∓90° when looking sideways down the aisle', () => {
+    expect(lookOrientationFromDirection([1, 0, 0]).yaw).toBeCloseTo(-Math.PI / 2, 10);
+    expect(lookOrientationFromDirection([-1, 0, 0]).yaw).toBeCloseTo(Math.PI / 2, 10);
+  });
+
+  it('clamps the pitch at ±80° instead of flipping upside-down', () => {
+    expect(lookOrientationFromDirection([0, 1, 0]).pitch).toBeCloseTo(WALK.maxPitch, 10);
+    expect(lookOrientationFromDirection([0, -1, 0]).pitch).toBeCloseTo(-WALK.maxPitch, 10);
+  });
+
+  it('a zero direction never produces NaN', () => {
+    const o = lookOrientationFromDirection([0, 0, 0]);
+    expect(Number.isFinite(o.yaw)).toBe(true);
+    expect(Number.isFinite(o.pitch)).toBe(true);
+  });
+
+  it('the Inside preset landing faces the glovebox (yaw ≈ 1.1°, pitch 0)', () => {
+    const inside = CAMERA_PRESETS.inside;
+    const dir = inside.target.map((v, i) => v - inside.pos[i]);
+    const o = lookOrientationFromDirection(dir);
+    expect(o.yaw).toBeCloseTo(0.019, 2);
+    expect(o.pitch).toBeCloseTo(0, 10);
+  });
+
+  it('the Chamber preset landing faces the glovebox front, slightly down', () => {
+    const chamber = CAMERA_PRESETS.chamber;
+    const dir = chamber.target.map((v, i) => v - chamber.pos[i]);
+    const o = lookOrientationFromDirection(dir);
+    expect(o.yaw).toBeCloseTo(0.093, 2);
+    expect(o.pitch).toBeCloseTo(-0.081, 2);
   });
 });
 

@@ -79,10 +79,12 @@ export default function App() {
   const [flow, setFlow] = useState(0);
   const [material, setMaterial] = useState('SIBAL fabric');
   const [sceneView, setSceneView] = useState('exterior'); // 'exterior' | 'interior'
-  // Walk mode (first-person inside the station, interior only — Ronit
-  // 2026-11-12: "make me move when I am inside iss station chamber?
-  // 360"). Drag on the scene = look, WASD/arrows + the hold-to-move
-  // D-pad = walk the aisle. Any camera preset exits it.
+  // Walk mode (first-person inside the station — Ronit 2026-11-12:
+  // "make me move when I am inside iss station chamber? 360"). Drag
+  // on the scene = look, WASD/arrows + the hold-to-move D-pad = walk
+  // the aisle. Any camera preset exits it. The button is in every
+  // view (tapping it flies to Inside); the drag-look itself is the
+  // interior default with or without Walk.
   const [walkMode, setWalkMode] = useState(false);
   // Hold-to-move flags — a mutable ref (not state) so pointer-hold
   // updates never re-render; FireLab3D reads it every frame.
@@ -105,7 +107,20 @@ export default function App() {
     sendCamCmd('preset', name);
   };
   const toggleWalk = () => {
-    if (!walkMode) setActivePreset('inside'); // walk starts at the Inside framing
+    if (!walkMode) {
+      // Walk starts at the Inside framing. From the exterior, switch
+      // the view and fly there with a preset command; from the interior
+      // the scene's startWalk flies there if needed. Do NOT use
+      // applyCameraPreset here — it clears walkMode, which would cancel
+      // the walk before it starts. (2026-11-12: toggleWalk used to
+      // only set the pill state, so tapping Walk from the exterior did
+      // nothing at all — no view switch, no flight, no D-pad.)
+      setActivePreset('inside');
+      if (sceneView !== 'interior') {
+        setSceneView('interior');
+        sendCamCmd('preset', 'inside');
+      }
+    }
     setWalkMode(!walkMode);
   };
   // Hold-to-move: pointerdown sets the flag, any release clears it.
@@ -315,30 +330,36 @@ export default function App() {
                   </button>
                 ))}
               </div>
-              {/* Walk mode — interior only (Ronit 2026-11-12: move inside
-                  the station chamber, 360°). Drag the scene to look
-                  around, WASD/arrows or the hold-to-move arrows to walk
-                  the aisle. Any preset above exits it. */}
-              {sceneView === 'interior' && (
-                <div className="mt-1.5 flex flex-wrap items-center gap-1.5" role="group" aria-label="Walk mode">
-                  <button
-                    type="button"
-                    onClick={toggleWalk}
-                    aria-pressed={walkMode}
-                    aria-label="Walk inside the station"
-                    className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors ${
-                      walkMode ? 'border-sky-300/60 bg-sky-400/80 text-slate-950' : 'border-white/15 bg-white/[0.05] text-slate-200 hover:border-white/30'
-                    }`}
-                  >
-                    🚶 Walk
-                  </button>
-                  {walkMode && (
-                    <span className="text-[11px] leading-tight text-slate-400">
-                      Walking — drag the scene to look around, hold the arrows to move. Tap a view to exit.
-                    </span>
-                  )}
-                </div>
-              )}
+              {/* Walk mode — one tap from anywhere (Ronit 2026-11-12:
+                  the button used to hide until Inside, so he could
+                  never find it; and tapping it from the exterior did
+                  nothing). Tapping it flies to Inside and starts
+                  walking. Drag looks around 360° in the interior with
+                  or without Walk; Walk adds movement (WASD/arrows or
+                  the hold-to-move arrows). Any preset above exits it. */}
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5" role="group" aria-label="Walk mode">
+                <button
+                  type="button"
+                  onClick={toggleWalk}
+                  aria-pressed={walkMode}
+                  aria-label="Walk inside the station"
+                  className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors ${
+                    walkMode ? 'border-sky-300/60 bg-sky-400/80 text-slate-950' : 'border-white/15 bg-white/[0.05] text-slate-200 hover:border-white/30'
+                  }`}
+                >
+                  🚶 Walk
+                </button>
+                {walkMode && (
+                  <span className="text-[11px] leading-tight text-slate-400">
+                    Walking — drag the scene to look around, hold the arrows to move. Tap a view to exit.
+                  </span>
+                )}
+                {!walkMode && sceneView === 'interior' && (
+                  <span className="text-[11px] leading-tight text-slate-400">
+                    Drag the scene to look around 360°.
+                  </span>
+                )}
+              </div>
 
               {/* Atmosphere presets — three small chips; they just set the sliders. */}
               <div className="mt-2 flex flex-wrap gap-1.5" role="group" aria-label="Cabin atmosphere">

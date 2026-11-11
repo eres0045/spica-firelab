@@ -276,7 +276,11 @@ export function clampInteriorCamera(pos) {
  * arrow keys + hold-to-move buttons = move through the aisle at a slow
  * float. The camera position is clamped by the SAME interior wall clamp
  * as the orbit camera (clampInteriorCamera), so the blur fix survives
- * walking. Pure — unit-tested.
+ * walking. The same yaw/pitch state drives the DEFAULT interior look
+ * (2026-11-12: drag turns 360° without Walk — the orbit clamp froze
+ * the camera at R≈5.3, so the interior looks first-person from a fixed
+ * position instead of orbiting; Walk only adds movement). Pure —
+ * unit-tested.
  */
 export const WALK = {
   speed: 0.8, // scene units / second — a slow float, not a sprint
@@ -294,6 +298,22 @@ export function normalizeYaw(yaw) {
 /** Clamp a pitch to ±maxPitch (default ±80°). Pure. */
 export function clampPitch(pitch, maxPitch = WALK.maxPitch) {
   return Math.min(maxPitch, Math.max(-maxPitch, pitch));
+}
+/**
+ * Yaw/pitch that faces along a look direction `dir` ([x, y, z], any
+ * length) — YXZ euler, yaw 0 faces −Z (the glovebox from the Inside
+ * preset), pitch clamped to ±80°. This is how the interior look
+ * (default, no Walk needed) and the walk entry both reset to face a
+ * framing target: given the landed camera position and its preset
+ * target, the view lands looking at the target. Pure — unit-tested.
+ */
+export function lookOrientationFromDirection(dir) {
+  const len = Math.hypot(dir[0], dir[1], dir[2]) || 1;
+  const d = [dir[0] / len, dir[1] / len, dir[2] / len];
+  return {
+    yaw: normalizeYaw(Math.atan2(-d[0], -d[2])),
+    pitch: clampPitch(Math.asin(Math.min(1, Math.max(-1, d[1])))),
+  };
 }
 /**
  * Horizontal unit vectors for a yaw (YXZ euler, yaw 0 faces −Z — the
@@ -458,33 +478,50 @@ export default function FireLab3D({ o2, pressure, flow, material, materialClass,
     controls.autoRotateSpeed = 1.2;
     controls.addEventListener('start', () => { controls.autoRotate = false; });
 
-    // --- Walk mode (first-person, interior only) — see WALK above.
-    // Drag on the canvas = look (full 360° yaw, pitch ±80°); WASD /
-    // arrows + the panel's hold-to-move buttons = walk the aisle at a
-    // slow float. OrbitControls is disabled while walking (its
-    // update() would lookAt() the stale orbit target and override the
-    // walk orientation) and handed the camera back on exit, orbiting
-    // the glovebox. The walk always starts at the Inside preset
-    // framing, looking at the glovebox: entering flies there first,
-    // then takes over on landing.
+    // --- First-person look + walk (interior only) — see WALK above.
+    // Drag on the canvas = look (full 360° yaw, pitch ±80°). The look
+    // is the DEFAULT in the interior (2026-11-12: Ronit could not turn
+    // without Walk — the orbit clamp froze the camera at R≈5.3, so the
+    // interior now looks first-person from a fixed position instead of
+    // orbiting); Walk only adds movement (WASD / arrows + the panel's
+    // hold-to-move buttons = walk the aisle at a slow float). One
+    // shared yaw/pitch state (walk.yaw/pitch) drives both, so entering
+    // Walk keeps the same view and exiting Walk returns to it.
+    // OrbitControls is disabled while looking or walking (its update()
+    // would lookAt() the orbit target and override the orientation);
+    // presets and zooms fly with a tween and re-init the look on
+    // landing, facing the preset target. The look always starts at the
+    // Inside preset framing, looking at the glovebox: entering flies
+    // there first, then takes over on landing.
     const walk = {
       active: false, pending: false,
       yaw: 0, pitch: 0,
       keys: new Set(), // 'forward' | 'back' | 'left' | 'right'
       drag: null, // { x, y } last pointer position while dragging, or null
     };
-    if (typeof window !== 'undefined') window.__spicaWalk = { active: false };
+    // lookActive: the interior first-person look owns the camera
+    // orientation right now (look-only, or walk which shares it).
+    // False in the exterior (OrbitControls owns the camera) and
+    // suspended while a tween flies (re-inits on landing).
+    let lookActive = false;
+    if (typeof window !== 'undefined') {
+      window.__spicaWalk = { active: false };
+      window.__spicaLook = { active: false };
+    }
     // Yaw/pitch from the current look direction (position -> target),
     // so entry never depends on a possibly stale camera quaternion.
+    // Shared by the look (default) and the walk entry.
     const initWalkOrientation = () => {
       const dir = new THREE.Vector3().subVectors(controls.target, camera.position).normalize();
-      walk.yaw = normalizeYaw(Math.atan2(-dir.x, -dir.z));
-      walk.pitch = clampPitch(Math.asin(Math.min(1, Math.max(-1, dir.y))));
+      const o = lookOrientationFromDirection(dir.toArray());
+      walk.yaw = o.yaw;
+      walk.pitch = o.pitch;
     };
     const enterWalk = () => {
       initWalkOrientation();
       walk.active = true;
       walk.pending = false;
+      lookActive = true;
       controls.enabled = false;
       controls.autoRotate = false;
       if (typeof window !== 'undefined') {
@@ -503,14 +540,19 @@ export default function FireLab3D({ o2, pressure, flow, material, materialClass,
       walk.pending = false;
       walk.keys.clear();
       walk.drag = null;
-      // Hand the camera back to OrbitControls orbiting the glovebox,
-      // with the interior zoom limits (the walk may have drifted past
-      // a Chamber preset's max of 6 — the Inside max of 9 covers the
-      // aisle, so the first update() never pops the camera).
+      // Hand the camera back to the interior LOOK (not OrbitControls):
+      // the look resumes with the walk's yaw/pitch, so the view never
+      // snaps. controls stays disabled — OrbitControls would otherwise
+      // swallow the same drags and accumulate an un-applied rotate
+      // delta that fires as a jump the next time update() runs. The
+      // zoom limits are restored for the interior (the walk may have
+      // drifted past a Chamber preset's max of 6 — the Inside max of 9
+      // covers the aisle, so the first update() never pops the camera).
+      // A preset flight after this re-enables controls on landing when
+      // the destination is exterior (see the tween landing block).
       controls.target.set(FLAME_CENTER.x, FLAME_CENTER.y, FLAME_CENTER.z);
       controls.minDistance = CAM_INTERIOR.min;
       controls.maxDistance = CAM_INTERIOR.max;
-      controls.enabled = true;
       if (typeof window !== 'undefined') window.__spicaWalk = { active: false };
     };
     // Fly to the Inside framing, then enter on landing; already there
@@ -524,14 +566,18 @@ export default function FireLab3D({ o2, pressure, flow, material, materialClass,
       flyTo(insidePos, CAM_INTERIOR.target, 0.9, CAM_INTERIOR.min, CAM_INTERIOR.max, false);
     };
     // Drag-look on the canvas (pointer events — mouse + touch alike).
-    // OrbitControls ignores input while disabled, so the two never fight.
+    // Gated on lookActive, so the same handlers serve the default
+    // interior look AND the walk (which shares the yaw/pitch state).
+    // OrbitControls is disabled while looking/walking, so the two
+    // never fight; in the exterior lookActive is false and
+    // OrbitControls owns the drag.
     const onWalkPointerDown = (e) => {
-      if (!walk.active) return;
+      if (!lookActive) return;
       walk.drag = { x: e.clientX, y: e.clientY };
       try { renderer.domElement.setPointerCapture(e.pointerId); } catch { /* already captured */ }
     };
     const onWalkPointerMove = (e) => {
-      if (!walk.active || !walk.drag) return;
+      if (!lookActive || !walk.drag) return;
       const dx = e.clientX - walk.drag.x;
       const dy = e.clientY - walk.drag.y;
       walk.drag = { x: e.clientX, y: e.clientY };
@@ -1413,6 +1459,13 @@ export default function FireLab3D({ o2, pressure, flow, material, materialClass,
         }
       }
 
+      // A tween owns the camera while it flies — the look suspends
+      // (and re-inits from the landed framing, see the look block).
+      if (tween.active && lookActive) {
+        lookActive = false;
+        if (typeof window !== 'undefined') window.__spicaLook = { active: false };
+      }
+
       // Ignition burst triggers.
       if (s.material !== prevRef.material || (prevRef.o2 <= 13 && s.o2 > 13)) burstT = 0;
       prevRef.o2 = s.o2;
@@ -1555,7 +1608,49 @@ export default function FireLab3D({ o2, pressure, flow, material, materialClass,
           };
         }
       }
-      if (!walk.active) controls.update();
+      // Look activation: whenever the camera is settled in the
+      // interior (no tween, not walking) and the look is not already
+      // live, take the orientation from the current framing. This
+      // covers tween landings (presets, zooms, view switches) and any
+      // settled interior state — the look is the default, never
+      // something the user has to turn on.
+      if (!tween.active && !walk.active && prevViewRef.view === 'interior' && !lookActive) {
+        initWalkOrientation();
+        lookActive = true;
+        controls.enabled = false;
+      }
+      // Interior look (default, no Walk needed): drag-look from a
+      // fixed position — yaw wraps 360°, pitch ±80°. The position
+      // never moves here, so no wall can be clipped and the blur fix
+      // is untouched. Shares the walk orientation state, so entering
+      // Walk keeps the same view and exiting Walk returns to it. The
+      // look target stays on the look ray so __spicaCam still reads
+      // as a look direction (and zoom dollies along it).
+      if (lookActive && !walk.active && !tween.active) {
+        camera.quaternion.setFromEuler(new THREE.Euler(walk.pitch, walk.yaw, 0, 'YXZ'));
+        const { forward } = walkVectors(walk.yaw);
+        const cp = Math.cos(walk.pitch);
+        const sp = Math.sin(walk.pitch);
+        controls.target.set(
+          camera.position.x + forward[0] * cp * 2,
+          camera.position.y + sp * 2,
+          camera.position.z + forward[1] * cp * 2,
+        );
+        if (typeof window !== 'undefined') {
+          window.__spicaLook = {
+            active: true,
+            yaw: +walk.yaw.toFixed(3),
+            yawDeg: +((walk.yaw * 180) / Math.PI).toFixed(1),
+            pitchDeg: +((walk.pitch * 180) / Math.PI).toFixed(1),
+            pos: camera.position.toArray().map((v) => +v.toFixed(2)),
+          };
+        }
+      }
+      // OrbitControls.update() is skipped while looking or walking —
+      // it would lookAt() the orbit target and override the
+      // first-person orientation. It still runs during tweens (look
+      // suspended) and in the exterior.
+      if (!walk.active && !lookActive) controls.update();
       // Interior wall clamp (see clampInteriorCamera): OrbitControls
       // only limits distance-from-target, so without this the camera
       // could sit centimetres from a rack or against an end structure.
