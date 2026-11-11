@@ -444,10 +444,10 @@ export function fmt(n, digits = 2) {
 const ENV_BASE = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE) || '';
 export const API_CANDIDATES = ENV_BASE ? [ENV_BASE] : ['', 'https://spica-firelab.netlify.app'];
 export const LIVE_API_URL = 'https://spica-firelab.netlify.app';
-async function fetchJson(base, path, timeoutMs = 5000) {
-  // 5 s, not 1.5 s: the Netlify Function serves a 1.8 MB bundle (the
-  // PSI data is inlined) and a cold start + the request round-trip
-  // measures 0.9–1.3 s warm from the VM — 1.5 s timed the probe out
+async function fetchJson(base, path, timeoutMs = 15000) {
+  // 15 s: the first hit on a cold Netlify Function measured 13.2 s
+  // through this VM's MITM forwarder (warm hits are 0.4–1.3 s; direct
+  // users will see a far faster cold start). 1.5 s timed the probe out
   // on the live site and the app silently fell back to bundled data.
   // The UI works on bundled data meanwhile; only the source tag waits.
   const ctrl = new AbortController();
@@ -480,7 +480,7 @@ export async function tryApiLiveVerdict(material, o2, pressure, base) {
   return fetchJson(base, `/api/verdict?material=${encodeURIComponent(material)}&o2=${o2}&pressure=${pressure}`);
 }
 export async function tryApiBrief(atmosphereKey, base) {
-  return fetchJson(base, `/api/brief?atmosphere=${atmosphereKey}`, 5000);
+  return fetchJson(base, `/api/brief?atmosphere=${atmosphereKey}`, 15000);
 }
 
 /** NASA technical reports behind the headline investigations (further
