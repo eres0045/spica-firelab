@@ -16,6 +16,10 @@
 # instead (the function sends Access-Control-Allow-Origin: *).
 [functions]
   directory = "netlify/functions"
+  # The function reads its data JSONs from disk at runtime; make sure the
+  # bundler ships them (they live inside the function's own folder, but
+  # belt-and-braces — a missing file at runtime would silently break /api).
+  included_files = ["netlify/functions/api/data/**"]
 
 # The /api/* rewrite MUST come before the SPA fallback below — Netlify
 # takes the first matching redirect.
