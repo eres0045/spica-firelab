@@ -191,6 +191,61 @@ export function zoomDistance(current, factor, min, max) {
 }
 
 /**
+ * Interior wall clamp — measured from the real scan geometry (see
+ * blur-investigation/sphere-map-results.txt and clamp-shape-results*.txt):
+ * the scan corridor spans x ±2.47, y ±2.60, z ±10.90 (normalised,
+ * centred at the origin), and OrbitControls only clamps distance-from-
+ * target, never distance-from-wall — so at mid-zoom (radius 3) the
+ * camera could sit 0.02 units from a rack, and orbiting sideways left
+ * the corridor entirely. A box clamp FAILED (its corners stick into
+ * the racks: R6 26% mush, R9 33%); a fixed cylinder FAILED too (racks
+ * protrude to lateral ~1.2 at scattered z: R9 8% central mush); a
+ * voxel grid FAILED (Euclidean clearance is the wrong metric — the
+ * zoom-in R1.2 +x pose is 0.19u from a surface BEHIND the camera and
+ * its view is clean). The shape that measures 0/150 central mush, 0
+ * soft and 0 edge mush at every radius (1.2, 3, 5.3, 6, 9) is a CONE
+ * around the corridor axis through the flame centre plus a Z-CAP:
+ *   - lateral cap 1.2 for R <= 3, else 3.6/R (R6: 0.60, R9: 0.40) —
+ *     the racks live off-axis at mid-corridor, so the camera must hug
+ *     the axis when far from the target; zooming in frees the orbit
+ *     (at R1.2 the cap is the whole sphere), which is the natural feel;
+ *   - |z| <= 6.0 — the corridor ends carry structures near the axis
+ *     from z ~6.7 on (+z) and ~-9.6 (-z); 6.0 clears them (z6.5 still
+ *     leaves 18/150 edge mush at R9, z6.0 leaves 0).
+ * The clamp projects the offset onto the cone (radius-preserving, so
+ * the zoom level never changes while dragging) and then caps z (a wall
+ * collision — the radius settles at the wall). Because it projects, the
+ * camera slides along the clamp surface instead of snapping. Pure —
+ * unit-tested; the sphere-map probe re-runs through it
+ * (scripts/clamp-sphere-map.mjs).
+ */
+export const INTERIOR_CLAMP = { lateral: 1.2, knee: 3, zMax: 6.0 };
+export function clampInteriorCamera(pos) {
+  const tx = FLAME_CENTER.x, ty = FLAME_CENTER.y, tz = FLAME_CENTER.z;
+  const ox = pos[0] - tx, oy = pos[1] - ty, oz = pos[2] - tz;
+  const R = Math.hypot(ox, oy, oz);
+  if (R < 1e-9) return [tx, ty, tz];
+  const lat = Math.hypot(ox, oy);
+  const cap = Math.min(R <= INTERIOR_CLAMP.knee ? INTERIOR_CLAMP.lateral : (INTERIOR_CLAMP.lateral * INTERIOR_CLAMP.knee) / R, R);
+  // Nothing to clamp: return the input exactly (no float drift from
+  // re-adding the target offset — the render loop calls this every
+  // frame, and the presets must land bit-identical).
+  if (lat <= cap && pos[2] >= -INTERIOR_CLAMP.zMax && pos[2] <= INTERIOR_CLAMP.zMax) return [pos[0], pos[1], pos[2]];
+  let nx = ox, ny = oy, nz = oz;
+  if (lat > cap && lat > 1e-9) {
+    const k = cap / lat;
+    nx = ox * k;
+    ny = oy * k;
+    // Re-stretch along the axis so |offset| stays R (zoom never changes
+    // while dragging); oz keeps its sign, so the camera never jumps
+    // across the target.
+    nz = Math.sign(oz || 1) * Math.sqrt(Math.max(0, R * R - cap * cap));
+  }
+  const z = Math.min(INTERIOR_CLAMP.zMax, Math.max(-INTERIOR_CLAMP.zMax, tz + nz));
+  return [tx + nx, ty + ny, z];
+}
+
+/**
  * Readiness flags for the screenshot scripts (and any external check):
  * window.__spicaModels = { iss, astronaut, dragon, intball, shuttle,
  * canadarm, lro, interior }.
@@ -207,6 +262,11 @@ function markModelLoaded(name) {
 
 export default function FireLab3D({ o2, pressure, flow, material, materialClass, atmosphereKey, sceneView = 'exterior', cameraCmd = null }) {
   const mountRef = useRef(null);
+  // View-switch fade overlay (see flyTo `fade`): a black div over the
+  // canvas, driven per-frame during a view-switch tween so the camera
+  // never shows the wall crossing. Below the load note (z-10) so the
+  // loading message stays visible above the fade.
+  const fadeRef = useRef(null);
   const webglOK = detectWebGL();
   const stateRef = useRef({ o2, pressure, flow, material, materialClass, atmosphereKey, sceneView, cameraCmd });
   stateRef.current = { o2, pressure, flow, material, materialClass, atmosphereKey, sceneView, cameraCmd };
@@ -889,8 +949,13 @@ export default function FireLab3D({ o2, pressure, flow, material, materialClass,
       fromPos: new THREE.Vector3(), toPos: new THREE.Vector3(),
       fromTgt: new THREE.Vector3(), toTgt: new THREE.Vector3(),
       min: 1.2, max: 16,
+      // fade: true only on view switches (exterior <-> interior). The
+      // straight lerp crosses the scan wall, so the canvas fades to
+      // black for the middle of the flight instead of flashing mush.
+      // Presets within one view and zooms never fade.
+      fade: false,
     };
-    const flyTo = (toPos, toTgt, dur = 0.9, min = controls.minDistance, max = controls.maxDistance) => {
+    const flyTo = (toPos, toTgt, dur = 0.9, min = controls.minDistance, max = controls.maxDistance, fade = false) => {
       const p = Array.isArray(toPos) ? new THREE.Vector3(...toPos) : toPos;
       const tg = Array.isArray(toTgt) ? new THREE.Vector3(...toTgt) : toTgt;
       tween.fromPos.copy(camera.position);
@@ -899,6 +964,8 @@ export default function FireLab3D({ o2, pressure, flow, material, materialClass,
       tween.toTgt.copy(tg);
       tween.t = 0;
       tween.dur = dur;
+      tween.fade = fade;
+      if (!fade && fadeRef.current) fadeRef.current.style.opacity = '0';
       // Wall-clock start (clock.elapsedTime, seconds): the tween must
       // take `dur` SECONDS, not `dur` worth of frames. dt is clamped to
       // 0.05/frame, so on a slow device (~0.5fps headless SwiftShader)
@@ -1004,8 +1071,12 @@ export default function FireLab3D({ o2, pressure, flow, material, materialClass,
           const preset = CAMERA_PRESETS[cmd.preset];
           if (preset) {
             const interior = preset.view === 'interior';
-            if ((prevViewRef.view === 'interior') !== interior) applyView(interior);
-            flyTo(framingFor(preset), preset.target, 0.9, preset.min, preset.max);
+            // Fade only when the preset actually flips the view — the
+            // straight flight crosses the scan wall. Same-view presets
+            // (Inside -> Chamber) fly in the open and never fade.
+            const flipped = (prevViewRef.view === 'interior') !== interior;
+            if (flipped) applyView(interior);
+            flyTo(framingFor(preset), preset.target, 0.9, preset.min, preset.max, flipped);
           }
         }
       }
@@ -1016,7 +1087,9 @@ export default function FireLab3D({ o2, pressure, flow, material, materialClass,
         const interior = s.sceneView === 'interior';
         applyView(interior);
         const cam = interior ? CAM_INTERIOR : CAM_EXTERIOR;
-        flyTo(framingFor(cam), cam.target, 0.9, cam.min, cam.max);
+        // View switch: fade through black (the straight flight crosses
+        // the scan wall — see the `fade` note on the tween object).
+        flyTo(framingFor(cam), cam.target, 0.9, cam.min, cam.max, true);
       }
 
       // Camera tween (ease-in-out), then hand the camera back to OrbitControls.
@@ -1027,8 +1100,18 @@ export default function FireLab3D({ o2, pressure, flow, material, materialClass,
         const k = tween.t >= 1 ? 1 : (tween.t < 0.5 ? 2 * tween.t * tween.t : 1 - Math.pow(-2 * tween.t + 2, 2) / 2);
         camera.position.lerpVectors(tween.fromPos, tween.toPos, k);
         controls.target.lerpVectors(tween.fromTgt, tween.toTgt, k);
+        // View-switch fade: black over the middle third of the flight
+        // (up 0–0.33, hold to 0.66, down to 1), so the wall crossing is
+        // never visible. Driven per-frame from wall-clock tween.t.
+        if (tween.fade && fadeRef.current) {
+          const ft = tween.t;
+          const fadeK = ft < 0.33 ? ft / 0.33 : ft > 0.66 ? Math.max(0, (1 - ft) / 0.34) : 1;
+          fadeRef.current.style.opacity = String(fadeK);
+        }
         if (tween.t >= 1) {
           tween.active = false;
+          tween.fade = false;
+          if (fadeRef.current) fadeRef.current.style.opacity = '0';
           controls.enabled = true;
           // Restore the destination view's real zoom limits (flyTo
           // widened them to cover the flight path — see above). Widened
@@ -1150,6 +1233,17 @@ export default function FireLab3D({ o2, pressure, flow, material, materialClass,
       intBallGroup.rotation.y = t * 0.3;
 
       controls.update();
+      // Interior wall clamp (see clampInteriorCamera): OrbitControls
+      // only limits distance-from-target, so without this the camera
+      // could sit centimetres from a rack or against an end structure.
+      // The clamp runs every frame after controls.update(), so it also
+      // catches zoom/tween positions — and because it projects onto the
+      // cone, dragging against it slides along the clamp surface instead
+      // of snapping. Exterior view has no scan, so it is never clamped.
+      if (prevViewRef.view === 'interior') {
+        const cp = clampInteriorCamera(camera.position.toArray());
+        camera.position.set(cp[0], cp[1], cp[2]);
+      }
       const tRender = performance.now();
       renderer.render(scene, camera);
       // Debug readout (like __spicaModels / __spicaCam): per-frame JS vs
@@ -1232,6 +1326,10 @@ export default function FireLab3D({ o2, pressure, flow, material, materialClass,
   return (
     <div className="relative h-full w-full">
       <div ref={mountRef} className="absolute inset-0" />
+      {/* View-switch fade (see flyTo `fade`): black over the canvas while
+          the camera crosses the scan wall. DOM order puts it above the
+          canvas and below the load note (z-10). */}
+      <div ref={fadeRef} className="pointer-events-none absolute inset-0 bg-black" style={{ opacity: 0 }} />
       {loadNote && (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
           <div className="rounded-2xl border border-white/20 bg-black/45 px-5 py-4 text-center shadow-xl backdrop-blur-md">

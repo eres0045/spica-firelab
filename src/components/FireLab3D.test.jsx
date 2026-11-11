@@ -8,7 +8,7 @@ import { existsSync, statSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { render, screen } from '@testing-library/react';
-import FireLab3D, { flameParams, CAMERA_PRESETS, zoomDistance, FLAME_CENTER } from './FireLab3D.jsx';
+import FireLab3D, { flameParams, CAMERA_PRESETS, zoomDistance, clampInteriorCamera, INTERIOR_CLAMP, FLAME_CENTER } from './FireLab3D.jsx';
 
 describe('flameParams — the flame visibly responds to the controls', () => {
   it('grows with O2 (small blue ball at low O2, big orange ball at high O2)', () => {
@@ -109,6 +109,80 @@ describe('CAMERA_PRESETS — the panel camera section (no top-right toggle)', ()
     expect(zoomDistance(15, 1.25, 4, 16)).toBe(16); // would pass the max
     expect(zoomDistance(1.5, 0.8, 1.2, 6)).toBeCloseTo(1.2, 10); // clamped at the min (1.5*0.8 floats to 1.2000000000000002)
     expect(zoomDistance(5, 1, 4, 16)).toBe(5); // factor 1 = no move
+  });
+});
+
+describe('clampInteriorCamera — the camera can never reach the mush zone', () => {
+  // Measured from the real scan (blur-investigation/clamp-shape-
+  // results5.txt): a box clamp failed (corners stick into racks),
+  // a fixed cylinder failed (racks protrude to lateral ~1.2), and a
+  // voxel grid failed (Euclidean clearance is the wrong metric). The
+  // shape that measures 0/150 central mush, 0 soft and 0 edge mush at
+  // every radius (1.2, 3, 5.3, 6, 9) is a cone around the corridor
+  // axis through the flame centre plus a z-cap: lateral 1.2 for R<=3,
+  // else 3.6/R; |z| <= 6.0 (the end structures start ~z 6.7).
+  const close = (got, want) => {
+    expect(got.length).toBe(3);
+    got.forEach((v, i) => expect(v).toBeCloseTo(want[i], 3));
+  };
+
+  it('has the measured cone + z-cap constants', () => {
+    expect(INTERIOR_CLAMP.lateral).toBe(1.2);
+    expect(INTERIOR_CLAMP.knee).toBe(3);
+    expect(INTERIOR_CLAMP.zMax).toBe(6.0);
+    // Derived lateral caps: R6 -> 0.60, R9 -> 0.40.
+    expect(3.6 / 6).toBeCloseTo(0.6, 10);
+    expect(3.6 / 9).toBeCloseTo(0.4, 10);
+  });
+
+  it('leaves positions inside the cone untouched', () => {
+    expect(clampInteriorCamera([0.1, 0.1, 4.6])).toEqual([0.1, 0.1, 4.6]); // Inside landing
+    expect(clampInteriorCamera([0.4, 0.35, 3.6])).toEqual([0.4, 0.35, 3.6]); // Chamber landing
+    expect(clampInteriorCamera([0, 0, 0])).toEqual([0, 0, 0]);
+    expect(clampInteriorCamera([1.0, 0.1, 2.3])).toEqual([1.0, 0.1, 2.3]); // inside the cone at R~3.16
+  });
+
+  it('projects outside positions onto the cone (radius-preserving), then caps z', () => {
+    // Just outside the cone at R~3.23 (lateral 1.2 vs cap 1.114).
+    close(clampInteriorCamera([1.2, 0.1, 2.3]), [1.114, 0.1, 2.333]);
+    // The old worst mush point (1.1, 2.13, -2.61): a rack 0.017u away.
+    // R ~3.0, lateral 2.31 -> capped to 1.2, radius kept.
+    close(clampInteriorCamera([1.1, 2.13, -2.61]), [0.572, 1.155, -3.446]);
+    // Sideways out of the corridor: lateral capped, then z capped at 6.0.
+    close(clampInteriorCamera([5, 0.1, 4.6]), [0.494, 0.1, 6.0]);
+    close(clampInteriorCamera([-5, 0.1, 4.6]), [-0.494, 0.1, 6.0]);
+    // The v3 R9 worst point (-1.17, -0.17, -9.62): end structure 0.018u away.
+    close(clampInteriorCamera([-1.17, -0.17, -9.62]), [-0.39, 0.01, -6.0]);
+    // Past the corridor ends: only the z-cap bites.
+    expect(clampInteriorCamera([0.1, 0.1, 12])).toEqual([0.1, 0.1, 6.0]);
+    expect(clampInteriorCamera([0.1, 0.1, -12])).toEqual([0.1, 0.1, -6.0]);
+  });
+
+  it('is idempotent — clamping a clamped position changes nothing', () => {
+    for (const p of [[9, 9, 9], [-9, -9, -9], [0.5, 3, -11], [2, -2, 20], [1.1, 2.13, -2.61], [5, 0.1, 4.6]]) {
+      const once = clampInteriorCamera(p);
+      expect(clampInteriorCamera(once)).toEqual(once);
+    }
+  });
+
+  it('every interior preset lands inside the cone, so presets never land clamped', () => {
+    for (const name of ['inside', 'chamber']) {
+      const p = CAMERA_PRESETS[name];
+      expect(clampInteriorCamera(p.pos)).toEqual(p.pos);
+      // Portrait scaling (1.15x) also stays inside the cone.
+      const s = p.pos.map((v, i) => p.target[i] + (v - p.target[i]) * 1.15);
+      expect(clampInteriorCamera(s)).toEqual(s);
+    }
+  });
+
+  it('zoom-in to the min radius can never leave the cone from the Inside target', () => {
+    // Any point within 1.2 of the target [0, 0.1, -0.7] has lateral <=
+    // 1.2 (the cap at R<=3) and z in [-1.9, 0.5] (inside +-6.0).
+    const t = CAMERA_PRESETS.inside.target;
+    for (const d of [[1.2, 0, 0], [0, 1.2, 0], [0, 0, 1.2], [-1.2, 0, 0], [0, -1.2, 0], [0.7, 0.7, 0.7]]) {
+      const p = t.map((v, i) => v + d[i]);
+      expect(clampInteriorCamera(p)).toEqual(p);
+    }
   });
 });
 
