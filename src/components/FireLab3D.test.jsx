@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import * as THREE from 'three';
 import { render, screen } from '@testing-library/react';
-import FireLab3D, { flameParams, CAMERA_PRESETS, zoomDistance, clampInteriorCamera, INTERIOR_CLAMP, FLAME_CENTER, DESTINY, destinyInteriorTransform } from './FireLab3D.jsx';
+import FireLab3D, { flameParams, CAMERA_PRESETS, zoomDistance, clampInteriorCamera, INTERIOR_CLAMP, FLAME_CENTER, DESTINY, destinyInteriorTransform, WALK, normalizeYaw, clampPitch, walkVectors, walkStep, clampWalkPosition } from './FireLab3D.jsx';
 
 describe('flameParams — the flame visibly responds to the controls', () => {
   it('grows with O2 (small blue ball at low O2, big orange ball at high O2)', () => {
@@ -193,6 +193,108 @@ describe('clampInteriorCamera — the camera can never reach the mush zone', () 
     }
     // Sideways at the min radius slides along the cone to the glass floor.
     close(clampInteriorCamera([1.2, 0.1, -0.7]), [0.55, 0.1, 0.367]);
+  });
+});
+
+describe('walk mode — 360° first-person inside Destiny', () => {
+  // 2026-11-12, Ronit: "make me move when I am inside iss station
+  // chamber? 360". Drag = look (full 360° yaw, pitch ±80°), WASD /
+  // arrows + hold-to-move buttons = walk the aisle at a slow float,
+  // clamped by the same interior wall clamp as the orbit camera.
+
+  it('yaw wraps — dragging past 180° keeps turning, never hits a stop', () => {
+    expect(normalizeYaw(Math.PI + 0.1)).toBeCloseTo(-Math.PI + 0.1, 10);
+    expect(normalizeYaw(-Math.PI - 0.1)).toBeCloseTo(Math.PI - 0.1, 10);
+    expect(normalizeYaw(3 * Math.PI)).toBeCloseTo(-Math.PI, 10);
+    expect(normalizeYaw(2 * Math.PI + 0.3)).toBeCloseTo(0.3, 10);
+    expect(normalizeYaw(-2 * Math.PI - 0.3)).toBeCloseTo(-0.3, 10);
+    expect(normalizeYaw(0.5)).toBe(0.5);
+    expect(normalizeYaw(-2.5)).toBe(-2.5);
+    // A full 360° drag (2π of yaw) comes back to the same heading.
+    expect(normalizeYaw(0.7 + 2 * Math.PI)).toBeCloseTo(0.7, 10);
+  });
+
+  it('pitch clamps at ±80° so the view never flips upside-down', () => {
+    expect(WALK.maxPitch).toBeCloseTo((80 * Math.PI) / 180, 10);
+    expect(clampPitch(2)).toBe(WALK.maxPitch);
+    expect(clampPitch(-2)).toBe(-WALK.maxPitch);
+    expect(clampPitch(0.5)).toBe(0.5);
+    expect(clampPitch(WALK.maxPitch + 0.1)).toBe(WALK.maxPitch);
+    expect(clampPitch(-WALK.maxPitch - 0.1)).toBe(-WALK.maxPitch);
+  });
+
+  it('walkVectors point the right way: yaw 0 faces −Z (the glovebox), right is +X', () => {
+    const v0 = walkVectors(0);
+    expect(v0.forward[0]).toBeCloseTo(0, 10);
+    expect(v0.forward[1]).toBeCloseTo(-1, 10);
+    expect(v0.right[0]).toBeCloseTo(1, 10);
+    expect(v0.right[1]).toBeCloseTo(0, 10);
+    const v90 = walkVectors(Math.PI / 2);
+    expect(v90.forward[0]).toBeCloseTo(-1, 10);
+    expect(v90.forward[1]).toBeCloseTo(0, 10);
+    expect(v90.right[0]).toBeCloseTo(0, 10);
+    expect(v90.right[1]).toBeCloseTo(-1, 10);
+    // Unit length and perpendicular at any yaw.
+    for (const yaw of [0.3, 1.1, 2.4, -0.8, Math.PI]) {
+      const v = walkVectors(yaw);
+      expect(Math.hypot(...v.forward)).toBeCloseTo(1, 10);
+      expect(Math.hypot(...v.right)).toBeCloseTo(1, 10);
+      expect(v.forward[0] * v.right[0] + v.forward[1] * v.right[1]).toBeCloseTo(0, 10);
+    }
+  });
+
+  it('walkStep moves at WALK.speed, keeps eye height, and never goes faster diagonally', () => {
+    expect(WALK.speed).toBeGreaterThan(0.5);
+    expect(WALK.speed).toBeLessThan(1.2); // slow float — the aisle takes ~6 s to cross
+    const start = [0.1, 0.1, 4.6]; // Inside preset position
+    // Forward (yaw 0 = facing the glovebox, −Z) for 1 s.
+    const fwd = walkStep(start, 0, { forward: 1 }, WALK.speed, 1);
+    expect(fwd[0]).toBeCloseTo(0.1, 10);
+    expect(fwd[1]).toBe(0.1); // height never changes
+    expect(fwd[2]).toBeCloseTo(4.6 - WALK.speed, 10);
+    // Back, left, right.
+    expect(walkStep(start, 0, { back: 1 }, WALK.speed, 1)[2]).toBeCloseTo(4.6 + WALK.speed, 10);
+    expect(walkStep(start, 0, { right: 1 }, WALK.speed, 1)[0]).toBeCloseTo(0.1 + WALK.speed, 10);
+    expect(walkStep(start, 0, { left: 1 }, WALK.speed, 1)[0]).toBeCloseTo(0.1 - WALK.speed, 10);
+    // Facing the far hatch (yaw π) forward is +Z.
+    expect(walkStep(start, Math.PI, { forward: 1 }, WALK.speed, 1)[2]).toBeCloseTo(4.6 + WALK.speed, 10);
+    // Opposite keys cancel out.
+    expect(walkStep(start, 0, { forward: 1, back: 1 }, WALK.speed, 1)).toEqual(start);
+    // Diagonal is normalised — same distance as straight, not √2×.
+    const diag = walkStep(start, 0, { forward: 1, right: 1 }, WALK.speed, 1);
+    expect(Math.hypot(diag[0] - start[0], diag[2] - start[2])).toBeCloseTo(WALK.speed, 10);
+    // No input = no move; dt scales the step.
+    expect(walkStep(start, 0, {}, WALK.speed, 1)).toEqual(start);
+    expect(walkStep(start, 0, { forward: 1 }, WALK.speed, 0.5)[2]).toBeCloseTo(4.6 - WALK.speed / 2, 10);
+  });
+
+  it('clampWalkPosition holds the aisle extremes — z [0.3, 5.5], bike-zone lateral 0.55', () => {
+    // Inside start (and its portrait framing) are untouched.
+    expect(clampWalkPosition([0.1, 0.1, 4.6])).toEqual([0.1, 0.1, 4.6]);
+    expect(clampWalkPosition([0.115, 0.1, 5.395])).toEqual([0.115, 0.1, 5.395]);
+    // Far end / near end: only the z-range bites.
+    expect(clampWalkPosition([0.1, 0.1, 5.5])).toEqual([0.1, 0.1, 5.5]);
+    expect(clampWalkPosition([0.1, 0.1, 6.5])).toEqual([0.1, 0.1, 5.5]);
+    expect(clampWalkPosition([0.1, 0.1, 0.3])).toEqual([0.1, 0.1, 0.3]);
+    expect(clampWalkPosition([0.1, 0.1, 0.1])).toEqual([0.1, 0.1, 0.3]);
+    // Bike zone (z <= 2.5): lateral caps at 0.55 — walking into the
+    // CEVIS mount slides along the clamp, never into the rack face.
+    const bike = clampWalkPosition([1.2, 0.1, 2.3]);
+    expect(bike[0]).toBeCloseTo(0.55, 3);
+    expect(bike[2]).toBeCloseTo(2.484, 3);
+    // Far side wall: lateral capped, then z capped at 5.5.
+    const side = clampWalkPosition([5, 0.1, 4.6]);
+    expect(side[0]).toBeCloseTo(0.412, 3);
+    expect(side[2]).toBe(5.5);
+    // A full walk step that would leave the aisle is pulled back in.
+    const stepped = walkStep([0.1, 0.1, 5.4], Math.PI, { forward: 1 }, WALK.speed, 1);
+    expect(stepped[2]).toBeGreaterThan(5.5); // raw step overshoots the end
+    expect(clampWalkPosition(stepped)[2]).toBe(5.5); // clamped back
+    const intoRack = walkStep([0.5, 0.1, 2.0], 0, { right: 1 }, WALK.speed, 1);
+    const clampedRack = clampWalkPosition(intoRack);
+    expect(Math.abs(clampedRack[0])).toBeLessThanOrEqual(0.56);
+    expect(clampedRack[2]).toBeGreaterThanOrEqual(0.3);
+    expect(clampedRack[2]).toBeLessThanOrEqual(5.5);
   });
 });
 

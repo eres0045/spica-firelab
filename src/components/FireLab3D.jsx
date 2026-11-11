@@ -267,6 +267,70 @@ export function clampInteriorCamera(pos) {
 }
 
 /**
+ * Walk mode (2026-11-12, Ronit: "make me move when I am inside iss
+ * station chamber? 360") — first-person walk inside Destiny. Drag =
+ * look (full 360° yaw, pitch ±80° so the view never flips), WASD /
+ * arrow keys + hold-to-move buttons = move through the aisle at a slow
+ * float. The camera position is clamped by the SAME interior wall clamp
+ * as the orbit camera (clampInteriorCamera), so the blur fix survives
+ * walking. Pure — unit-tested.
+ */
+export const WALK = {
+  speed: 0.8, // scene units / second — a slow float, not a sprint
+  lookSensitivity: 0.006, // radians of yaw/pitch per pixel of drag
+  maxPitch: (80 * Math.PI) / 180, // ±80° — never flips upside-down
+};
+/** Wrap a yaw to [-π, π) — dragging past 180° keeps turning, no stop. Pure. */
+export function normalizeYaw(yaw) {
+  const twoPi = Math.PI * 2;
+  let y = yaw % twoPi;
+  if (y >= Math.PI) y -= twoPi;
+  if (y < -Math.PI) y += twoPi;
+  return y;
+}
+/** Clamp a pitch to ±maxPitch (default ±80°). Pure. */
+export function clampPitch(pitch, maxPitch = WALK.maxPitch) {
+  return Math.min(maxPitch, Math.max(-maxPitch, pitch));
+}
+/**
+ * Horizontal unit vectors for a yaw (YXZ euler, yaw 0 faces −Z — the
+ * glovebox from the Inside preset). Pure.
+ */
+export function walkVectors(yaw) {
+  return {
+    forward: [-Math.sin(yaw), -Math.cos(yaw)], // [x, z]
+    right: [Math.cos(yaw), -Math.sin(yaw)], // [x, z]
+  };
+}
+/**
+ * One walk step: move `pos` by the held directions at `speed` for `dt`
+ * seconds. `move` is { forward, back, left, right } (truthy = held).
+ * Diagonal input is normalised so it is never faster than straight.
+ * Returns the new [x, y, z] BEFORE the wall clamp — the caller clamps
+ * with clampWalkPosition. The height never changes (eye level is the
+ * Inside preset height). Pure — unit-tested.
+ */
+export function walkStep(pos, yaw, move, speed, dt) {
+  const { forward, right } = walkVectors(yaw);
+  const f = (move.forward ? 1 : 0) - (move.back ? 1 : 0);
+  const r = (move.right ? 1 : 0) - (move.left ? 1 : 0);
+  const mx = forward[0] * f + right[0] * r;
+  const mz = forward[1] * f + right[1] * r;
+  const len = Math.hypot(mx, mz);
+  if (len < 1e-9) return [pos[0], pos[1], pos[2]];
+  const k = (speed * dt) / len;
+  return [pos[0] + mx * k, pos[1], pos[2] + mz * k];
+}
+/**
+ * Walk position clamp — the same validated interior wall clamp as the
+ * orbit camera: z in [0.3, 5.5], lateral cone, 0.55 in the bike zone
+ * (see clampInteriorCamera). Pure — unit-tested at the aisle extremes.
+ */
+export function clampWalkPosition(pos) {
+  return clampInteriorCamera(pos);
+}
+
+/**
  * Destiny placement for the full-station interior tour (Space Explorers
  * Academy, CC BY-NC-SA 4.0 — the same NASA/JSC IGOAL scan as the Raiz
  * tour, which is not downloadable). Measured from the GLB with
@@ -320,7 +384,7 @@ function markModelLoaded(name) {
   }
 }
 
-export default function FireLab3D({ o2, pressure, flow, material, materialClass, atmosphereKey, sceneView = 'exterior', cameraCmd = null }) {
+export default function FireLab3D({ o2, pressure, flow, material, materialClass, atmosphereKey, sceneView = 'exterior', cameraCmd = null, walkMode = false, walkMoveRef = null }) {
   const mountRef = useRef(null);
   // View-switch fade overlay (see flyTo `fade`): a black div over the
   // canvas, driven per-frame during a view-switch tween so the camera
@@ -328,8 +392,8 @@ export default function FireLab3D({ o2, pressure, flow, material, materialClass,
   // loading message stays visible above the fade.
   const fadeRef = useRef(null);
   const webglOK = detectWebGL();
-  const stateRef = useRef({ o2, pressure, flow, material, materialClass, atmosphereKey, sceneView, cameraCmd });
-  stateRef.current = { o2, pressure, flow, material, materialClass, atmosphereKey, sceneView, cameraCmd };
+  const stateRef = useRef({ o2, pressure, flow, material, materialClass, atmosphereKey, sceneView, cameraCmd, walkMode, walkMoveRef });
+  stateRef.current = { o2, pressure, flow, material, materialClass, atmosphereKey, sceneView, cameraCmd, walkMode, walkMoveRef };
   // Loading overlay — first paint must never be a black screen. The
   // station note clears when the CORE models (ISS + astronaut) have
   // settled (loaded or failed) and the first frame has rendered; the
@@ -390,6 +454,115 @@ export default function FireLab3D({ o2, pressure, flow, material, materialClass,
     controls.autoRotate = false;
     controls.autoRotateSpeed = 1.2;
     controls.addEventListener('start', () => { controls.autoRotate = false; });
+
+    // --- Walk mode (first-person, interior only) — see WALK above.
+    // Drag on the canvas = look (full 360° yaw, pitch ±80°); WASD /
+    // arrows + the panel's hold-to-move buttons = walk the aisle at a
+    // slow float. OrbitControls is disabled while walking (its
+    // update() would lookAt() the stale orbit target and override the
+    // walk orientation) and handed the camera back on exit, orbiting
+    // the glovebox. The walk always starts at the Inside preset
+    // framing, looking at the glovebox: entering flies there first,
+    // then takes over on landing.
+    const walk = {
+      active: false, pending: false,
+      yaw: 0, pitch: 0,
+      keys: new Set(), // 'forward' | 'back' | 'left' | 'right'
+      drag: null, // { x, y } last pointer position while dragging, or null
+    };
+    if (typeof window !== 'undefined') window.__spicaWalk = { active: false };
+    // Yaw/pitch from the current look direction (position -> target),
+    // so entry never depends on a possibly stale camera quaternion.
+    const initWalkOrientation = () => {
+      const dir = new THREE.Vector3().subVectors(controls.target, camera.position).normalize();
+      walk.yaw = normalizeYaw(Math.atan2(-dir.x, -dir.z));
+      walk.pitch = clampPitch(Math.asin(Math.min(1, Math.max(-1, dir.y))));
+    };
+    const enterWalk = () => {
+      initWalkOrientation();
+      walk.active = true;
+      walk.pending = false;
+      controls.enabled = false;
+      controls.autoRotate = false;
+      if (typeof window !== 'undefined') {
+        window.__spicaWalk = {
+          active: true,
+          yaw: +walk.yaw.toFixed(3),
+          yawDeg: +((walk.yaw * 180) / Math.PI).toFixed(1),
+          pitchDeg: +((walk.pitch * 180) / Math.PI).toFixed(1),
+          pos: camera.position.toArray().map((v) => +v.toFixed(2)),
+        };
+      }
+    };
+    const exitWalk = () => {
+      if (!walk.active && !walk.pending) return;
+      walk.active = false;
+      walk.pending = false;
+      walk.keys.clear();
+      walk.drag = null;
+      // Hand the camera back to OrbitControls orbiting the glovebox,
+      // with the interior zoom limits (the walk may have drifted past
+      // a Chamber preset's max of 6 — the Inside max of 9 covers the
+      // aisle, so the first update() never pops the camera).
+      controls.target.set(FLAME_CENTER.x, FLAME_CENTER.y, FLAME_CENTER.z);
+      controls.minDistance = CAM_INTERIOR.min;
+      controls.maxDistance = CAM_INTERIOR.max;
+      controls.enabled = true;
+      if (typeof window !== 'undefined') window.__spicaWalk = { active: false };
+    };
+    // Fly to the Inside framing, then enter on landing; already there
+    // means enter immediately (no pointless flight).
+    const startWalk = () => {
+      const insidePos = framingFor(CAM_INTERIOR);
+      const dist = camera.position.distanceTo(new THREE.Vector3(...insidePos));
+      const tgtDist = controls.target.distanceTo(new THREE.Vector3(...CAM_INTERIOR.target));
+      if (dist < 0.05 && tgtDist < 0.05) { enterWalk(); return; }
+      walk.pending = true;
+      flyTo(insidePos, CAM_INTERIOR.target, 0.9, CAM_INTERIOR.min, CAM_INTERIOR.max, false);
+    };
+    // Drag-look on the canvas (pointer events — mouse + touch alike).
+    // OrbitControls ignores input while disabled, so the two never fight.
+    const onWalkPointerDown = (e) => {
+      if (!walk.active) return;
+      walk.drag = { x: e.clientX, y: e.clientY };
+      try { renderer.domElement.setPointerCapture(e.pointerId); } catch { /* already captured */ }
+    };
+    const onWalkPointerMove = (e) => {
+      if (!walk.active || !walk.drag) return;
+      const dx = e.clientX - walk.drag.x;
+      const dy = e.clientY - walk.drag.y;
+      walk.drag = { x: e.clientX, y: e.clientY };
+      walk.yaw = normalizeYaw(walk.yaw - dx * WALK.lookSensitivity);
+      walk.pitch = clampPitch(walk.pitch - dy * WALK.lookSensitivity);
+    };
+    const onWalkPointerUp = () => { walk.drag = null; };
+    renderer.domElement.addEventListener('pointerdown', onWalkPointerDown);
+    renderer.domElement.addEventListener('pointermove', onWalkPointerMove);
+    renderer.domElement.addEventListener('pointerup', onWalkPointerUp);
+    renderer.domElement.addEventListener('pointercancel', onWalkPointerUp);
+    // WASD / arrows — ignored when typing in a field (there are none in
+    // the panel, but the guard costs nothing).
+    const KEY_DIRS = {
+      KeyW: 'forward', ArrowUp: 'forward',
+      KeyS: 'back', ArrowDown: 'back',
+      KeyA: 'left', ArrowLeft: 'left',
+      KeyD: 'right', ArrowRight: 'right',
+    };
+    const onWalkKeyDown = (e) => {
+      if (!walk.active) return;
+      const dir = KEY_DIRS[e.code];
+      if (!dir) return;
+      const tag = (e.target && e.target.tagName) || '';
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      e.preventDefault();
+      walk.keys.add(dir);
+    };
+    const onWalkKeyUp = (e) => {
+      const dir = KEY_DIRS[e.code];
+      if (dir) walk.keys.delete(dir);
+    };
+    window.addEventListener('keydown', onWalkKeyDown);
+    window.addEventListener('keyup', onWalkKeyUp);
 
     scene.add(new THREE.AmbientLight(0xffffff, 0.4));
     const key = new THREE.DirectionalLight(0xffffff, 0.9);
@@ -1112,6 +1285,14 @@ export default function FireLab3D({ o2, pressure, flow, material, materialClass,
       }
       const p = flameParams({ materialClass: s.materialClass, o2: s.o2, pressure: s.pressure, flow: s.flow });
 
+      // Walk mode transitions (interior only, first-person). Entering
+      // flies to the Inside framing first (see startWalk); exiting
+      // hands the camera back to OrbitControls. A preset click also
+      // clears walkMode in App, so this runs before the command block
+      // and the preset flight below never fights the walk camera.
+      if (s.walkMode && !walk.active && !walk.pending && prevViewRef.view === 'interior') startWalk();
+      else if (!s.walkMode && (walk.active || walk.pending)) exitWalk();
+
       // Camera commands from the panel (zoom + presets) — handled BEFORE
       // the plain view change, so a preset click that also flips the view
       // flies straight to the preset framing instead of the default view
@@ -1120,13 +1301,21 @@ export default function FireLab3D({ o2, pressure, flow, material, materialClass,
       if (s.cameraCmd && s.cameraCmd.seq !== cmdRef.seq) {
         cmdRef.seq = s.cameraCmd.seq;
         const cmd = s.cameraCmd;
+        // A preset while walking exits first (App clears walkMode too —
+        // this is the belt-and-braces copy, so a stale command can
+        // never fly the camera while the walk owns it).
+        if (cmd.kind === 'preset' && (walk.active || walk.pending)) exitWalk();
         if (cmd.kind === 'zoom-in' || cmd.kind === 'zoom-out') {
-          const factor = cmd.kind === 'zoom-in' ? 0.8 : 1.25;
-          const dist = camera.position.distanceTo(controls.target);
-          const newDist = zoomDistance(dist, factor, controls.minDistance, controls.maxDistance);
-          const dir = camera.position.clone().sub(controls.target).normalize();
-          const newPos = controls.target.clone().add(dir.multiplyScalar(newDist));
-          flyTo(newPos, controls.target.clone(), 0.45);
+          if (!walk.active) {
+            const factor = cmd.kind === 'zoom-in' ? 0.8 : 1.25;
+            const dist = camera.position.distanceTo(controls.target);
+            const newDist = zoomDistance(dist, factor, controls.minDistance, controls.maxDistance);
+            const dir = camera.position.clone().sub(controls.target).normalize();
+            const newPos = controls.target.clone().add(dir.multiplyScalar(newDist));
+            flyTo(newPos, controls.target.clone(), 0.45);
+          }
+          // Walking: zoom is ignored — the move buttons are the dolly
+          // (the panel disables the zoom buttons in walk mode).
         } else if (cmd.kind === 'preset') {
           const preset = CAMERA_PRESETS[cmd.preset];
           if (preset) {
@@ -1184,6 +1373,8 @@ export default function FireLab3D({ o2, pressure, flow, material, materialClass,
           controls.maxDistance = Math.max(tween.max, landDist);
           // autoRotate stays off (see above) — the tween only flies the
           // camera between the exterior and interior framings.
+          // Walk entry flight landed — take over now (see startWalk).
+          if (walk.pending && s.walkMode) enterWalk();
         }
       }
 
@@ -1292,7 +1483,44 @@ export default function FireLab3D({ o2, pressure, flow, material, materialClass,
       intBallGroup.position.y = 0.55 + Math.sin(t * 0.6) * 0.08;
       intBallGroup.rotation.y = t * 0.3;
 
-      controls.update();
+      // Walk mode (first-person, interior only): drag-look + WASD /
+      // arrows + the hold-to-move buttons move the camera through the
+      // aisle at a slow float, clamped by the same wall clamp as the
+      // orbit camera. OrbitControls.update() is SKIPPED while walking —
+      // it would lookAt() the stale orbit target and override the walk
+      // orientation — and the look target is kept on the walk ray so
+      // the __spicaCam readout still reads as a look direction.
+      if (walk.active && !tween.active) {
+        const mv = (s.walkMoveRef && s.walkMoveRef.current) || {};
+        const move = {
+          forward: Boolean(mv.forward) || walk.keys.has('forward'),
+          back: Boolean(mv.back) || walk.keys.has('back'),
+          left: Boolean(mv.left) || walk.keys.has('left'),
+          right: Boolean(mv.right) || walk.keys.has('right'),
+        };
+        const stepped = walkStep(camera.position.toArray(), walk.yaw, move, WALK.speed, dt);
+        const clamped = clampWalkPosition(stepped);
+        camera.position.set(clamped[0], clamped[1], clamped[2]);
+        camera.quaternion.setFromEuler(new THREE.Euler(walk.pitch, walk.yaw, 0, 'YXZ'));
+        const { forward } = walkVectors(walk.yaw);
+        const cp = Math.cos(walk.pitch);
+        const sp = Math.sin(walk.pitch);
+        controls.target.set(
+          camera.position.x + forward[0] * cp * 2,
+          camera.position.y + sp * 2,
+          camera.position.z + forward[1] * cp * 2,
+        );
+        if (typeof window !== 'undefined') {
+          window.__spicaWalk = {
+            active: true,
+            yaw: +walk.yaw.toFixed(3),
+            yawDeg: +((walk.yaw * 180) / Math.PI).toFixed(1),
+            pitchDeg: +((walk.pitch * 180) / Math.PI).toFixed(1),
+            pos: camera.position.toArray().map((v) => +v.toFixed(2)),
+          };
+        }
+      }
+      if (!walk.active) controls.update();
       // Interior wall clamp (see clampInteriorCamera): OrbitControls
       // only limits distance-from-target, so without this the camera
       // could sit centimetres from a rack or against an end structure.
@@ -1348,6 +1576,12 @@ export default function FireLab3D({ o2, pressure, flow, material, materialClass,
     return () => {
       cancelAnimationFrame(raf);
       document.removeEventListener('visibilitychange', onVisibility);
+      renderer.domElement.removeEventListener('pointerdown', onWalkPointerDown);
+      renderer.domElement.removeEventListener('pointermove', onWalkPointerMove);
+      renderer.domElement.removeEventListener('pointerup', onWalkPointerUp);
+      renderer.domElement.removeEventListener('pointercancel', onWalkPointerUp);
+      window.removeEventListener('keydown', onWalkKeyDown);
+      window.removeEventListener('keyup', onWalkKeyUp);
       ro.disconnect();
       envCancelled = true;
       sceneCancelled = true;

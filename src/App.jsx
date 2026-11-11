@@ -79,6 +79,14 @@ export default function App() {
   const [flow, setFlow] = useState(0);
   const [material, setMaterial] = useState('SIBAL fabric');
   const [sceneView, setSceneView] = useState('exterior'); // 'exterior' | 'interior'
+  // Walk mode (first-person inside the station, interior only — Ronit
+  // 2026-11-12: "make me move when I am inside iss station chamber?
+  // 360"). Drag on the scene = look, WASD/arrows + the hold-to-move
+  // D-pad = walk the aisle. Any camera preset exits it.
+  const [walkMode, setWalkMode] = useState(false);
+  // Hold-to-move flags — a mutable ref (not state) so pointer-hold
+  // updates never re-render; FireLab3D reads it every frame.
+  const walkMoveRef = useRef({ forward: 0, back: 0, left: 0, right: 0 });
   // Camera commands for the scene (zoom + presets) — a sequence number so
   // FireLab3D applies each click exactly once. The panel's CAMERA section
   // is the ONLY camera control (Ronit 2026-11-11: zoom in/out + all view
@@ -91,10 +99,29 @@ export default function App() {
   const applyCameraPreset = (name) => {
     const preset = CAMERA_PRESETS[name];
     if (!preset) return;
+    setWalkMode(false); // any preset exits walk mode
     setActivePreset(name);
     if (preset.view !== sceneView) setSceneView(preset.view);
     sendCamCmd('preset', name);
   };
+  const toggleWalk = () => {
+    if (!walkMode) setActivePreset('inside'); // walk starts at the Inside framing
+    setWalkMode(!walkMode);
+  };
+  // Hold-to-move: pointerdown sets the flag, any release clears it.
+  // touch-none so a hold never scrolls the page; pointer capture so
+  // releasing off the button still clears it.
+  const holdMoveProps = (dir) => ({
+    onPointerDown: (e) => {
+      e.preventDefault();
+      try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* noop */ }
+      walkMoveRef.current[dir] = 1;
+    },
+    onPointerUp: () => { walkMoveRef.current[dir] = 0; },
+    onPointerCancel: () => { walkMoveRef.current[dir] = 0; },
+    onLostPointerCapture: () => { walkMoveRef.current[dir] = 0; },
+    onContextMenu: (e) => e.preventDefault(),
+  });
   const onZoom = (dir) => {
     setActivePreset(null);
     sendCamCmd(dir === 'in' ? 'zoom-in' : 'zoom-out');
@@ -198,6 +225,8 @@ export default function App() {
           atmosphereKey={scatterAtmosphere}
           sceneView={sceneView}
           cameraCmd={camCmd}
+          walkMode={walkMode}
+          walkMoveRef={walkMoveRef}
         />
       </div>
 
@@ -264,10 +293,10 @@ export default function App() {
                   fly off; presets fly to a framing. Compact, same glass. */}
               <h3 className="mt-3 text-sm font-semibold uppercase tracking-wider text-slate-400">Camera</h3>
               <div className="mt-1.5 flex items-center gap-1.5" role="group" aria-label="Camera zoom">
-                <button type="button" onClick={() => onZoom('out')} aria-label="Zoom out"
-                  className="rounded-lg border border-white/15 bg-white/[0.05] px-3 py-1 text-sm font-bold text-slate-200 hover:border-white/30">−</button>
-                <button type="button" onClick={() => onZoom('in')} aria-label="Zoom in"
-                  className="rounded-lg border border-white/15 bg-white/[0.05] px-3 py-1 text-sm font-bold text-slate-200 hover:border-white/30">+</button>
+                <button type="button" onClick={() => onZoom('out')} aria-label="Zoom out" disabled={walkMode}
+                  className="rounded-lg border border-white/15 bg-white/[0.05] px-3 py-1 text-sm font-bold text-slate-200 hover:border-white/30 disabled:opacity-40">−</button>
+                <button type="button" onClick={() => onZoom('in')} aria-label="Zoom in" disabled={walkMode}
+                  className="rounded-lg border border-white/15 bg-white/[0.05] px-3 py-1 text-sm font-bold text-slate-200 hover:border-white/30 disabled:opacity-40">+</button>
                 <span className="text-[11px] text-slate-400">Zoom — drag to look around</span>
               </div>
               <div className="mt-1.5 flex flex-wrap gap-1.5" role="group" aria-label="Camera views">
@@ -286,6 +315,30 @@ export default function App() {
                   </button>
                 ))}
               </div>
+              {/* Walk mode — interior only (Ronit 2026-11-12: move inside
+                  the station chamber, 360°). Drag the scene to look
+                  around, WASD/arrows or the hold-to-move arrows to walk
+                  the aisle. Any preset above exits it. */}
+              {sceneView === 'interior' && (
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5" role="group" aria-label="Walk mode">
+                  <button
+                    type="button"
+                    onClick={toggleWalk}
+                    aria-pressed={walkMode}
+                    aria-label="Walk inside the station"
+                    className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors ${
+                      walkMode ? 'border-sky-300/60 bg-sky-400/80 text-slate-950' : 'border-white/15 bg-white/[0.05] text-slate-200 hover:border-white/30'
+                    }`}
+                  >
+                    🚶 Walk
+                  </button>
+                  {walkMode && (
+                    <span className="text-[11px] leading-tight text-slate-400">
+                      Walking — drag the scene to look around, hold the arrows to move. Tap a view to exit.
+                    </span>
+                  )}
+                </div>
+              )}
 
               {/* Atmosphere presets — three small chips; they just set the sliders. */}
               <div className="mt-2 flex flex-wrap gap-1.5" role="group" aria-label="Cabin atmosphere">
@@ -391,6 +444,30 @@ export default function App() {
           )}
         </div>
       </div>
+      )}
+
+      {/* Walk D-pad — on-screen hold-to-move buttons, only while walking
+          inside. Floating top-right (clear of the bottom sheet on phones
+          and of the left sidebar on desktop), big enough to tap-hold.
+          One finger drags on the scene itself to look around. */}
+      {walkMode && sceneView === 'interior' && (
+        <div className="absolute right-3 top-16 z-20 select-none" role="group" aria-label="Walk movement">
+          <div className="grid w-[168px] grid-cols-3 gap-1.5">
+            <span aria-hidden="true" />
+            <button type="button" aria-label="Move forward" {...holdMoveProps('forward')}
+              className="touch-none rounded-xl border border-white/20 bg-white/[0.08] py-3 text-base font-bold text-slate-100 backdrop-blur-md active:border-sky-300/60 active:bg-sky-400/60">▲</button>
+            <span aria-hidden="true" />
+            <button type="button" aria-label="Move left" {...holdMoveProps('left')}
+              className="touch-none rounded-xl border border-white/20 bg-white/[0.08] py-3 text-base font-bold text-slate-100 backdrop-blur-md active:border-sky-300/60 active:bg-sky-400/60">◀</button>
+            <button type="button" aria-label="Move back" {...holdMoveProps('back')}
+              className="touch-none rounded-xl border border-white/20 bg-white/[0.08] py-3 text-base font-bold text-slate-100 backdrop-blur-md active:border-sky-300/60 active:bg-sky-400/60">▼</button>
+            <button type="button" aria-label="Move right" {...holdMoveProps('right')}
+              className="touch-none rounded-xl border border-white/20 bg-white/[0.08] py-3 text-base font-bold text-slate-100 backdrop-blur-md active:border-sky-300/60 active:bg-sky-400/60">▶</button>
+          </div>
+          <p className="mt-1.5 w-[168px] text-center text-[10px] leading-tight text-slate-400">
+            Hold to walk · drag scene to look
+          </p>
+        </div>
       )}
 
       {/* Mission brief modal — printable. Print CSS (index.css) hides
