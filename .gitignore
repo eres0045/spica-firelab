@@ -4,3 +4,6 @@ preview/
 
 # Local Netlify folder
 .netlify
+
+__pycache__/
+*.pyc
