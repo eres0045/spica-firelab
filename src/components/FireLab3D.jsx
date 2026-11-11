@@ -18,11 +18,13 @@
  *   sprite, far upper-right, opposite the Moon. Generated starfield
  *   behind it all.
  * - ISS: the uperesito Sketchfab model (CC-BY), landed 2026-11-11 via the
- *   Sketchfab Download API as `public/models/iss-uperesito.glb`. Probed
- *   with a Range GET + glTF-magic check (a HEAD probe cannot tell present
- *   from absent on the preview server's SPA fallback); the miss is the
- *   designed fallback signal, not an error — NASA's iss-a.glb (public
- *   domain) is the fallback.
+ *   Sketchfab Download API as `public/models/iss-uperesito.glb`. Loaded
+ *   directly with retries (3 attempts, 15 s network cap each, then the
+ *   same on NASA's iss-a.glb fallback, public domain) — see
+ *   loadIssModel in lib/sceneModels.js. The old probe-first single
+ *   attempt (no timeout, silent onError) lost the station to one
+ *   transient failure (Ronit's phone, 2026-11-12 01:14 IST); failures
+ *   are console.warns now, never silent.
  * - Astronaut: "Animated Floating Astronaut" by LasquetiSpice (CC-BY,
  *   Sketchfab) — natural relaxed floating pose, 7 s loop via
  *   AnimationMixer. Small in frame, drifting near the station. Never a
@@ -77,7 +79,8 @@ import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { ATMOSPHERES, detectWebGL } from '../lib/data.js';
 import {
   ISS_PREFERRED_URL, ISS_FALLBACK_URL, INTERIOR_TOUR_URL,
-  resolveOptionalModel, probeModelUrl, pub,
+  loadIssModel, fetchWithTimeout,
+  ISS_LOAD_ATTEMPT_TIMEOUT_MS, ISS_LOAD_DECODE_TIMEOUT_MS, pub,
 } from '../lib/sceneModels.js';
 
 /**
@@ -775,8 +778,18 @@ export default function FireLab3D({ o2, pressure, flow, material, materialClass,
       }
     };
 
-    // ISS group — probed at mount: uperesito (CC-BY) if a human dropped it
-    // in, else NASA's iss-a.glb (public domain). Silent on load failure.
+    // ISS group — uperesito (CC-BY), NASA's iss-a.glb (public domain)
+    // as fallback. 2026-11-12 fix: the old probe-first load had NO
+    // timeout and ONE silent attempt — a single transient probe/load
+    // failure left the station out for the whole page load (seen on
+    // Ronit's phone 01:14 IST, iss never set while every other model
+    // loaded). Now the bundled preferred file is tried directly, 3
+    // attempts with a 15 s network cap each, then the fallback the same
+    // way. Fetch and decode are capped separately: Draco decode under
+    // SwiftShader takes 16–25 s, so a single short cap over the whole
+    // load would kill healthy decodes. Every failure is a console.warn
+    // naming the URL and attempt; the overlay settles either way, so the
+    // sequence can never hang the page.
     // Positioned upper-right of the default view, clear of the glass
     // panels — the visible canvas strip between the two overlay panels
     // is narrow, so off-axis placement hides it behind a panel.
@@ -785,19 +798,41 @@ export default function FireLab3D({ o2, pressure, flow, material, materialClass,
     issGroup.rotation.y = -0.4;
     scene.add(issGroup);
     (async () => {
-      const preferredExists = await probeModelUrl(ISS_PREFERRED_URL);
-      const issUrl = resolveOptionalModel(
-        ISS_PREFERRED_URL, ISS_FALLBACK_URL,
-        (u) => u === ISS_PREFERRED_URL && preferredExists,
-      );
-      if (sceneCancelled) return;
-      gltfLoader.load(issUrl, (gltf) => {
+      // One attempt: fetch the bytes (network-capped), then Draco-decode
+      // them (decode-capped). A late success from a timed-out attempt is
+      // harmless — only the winning attempt's result is ever mounted.
+      const loadOnce = async (url) => {
+        const res = await fetchWithTimeout(url, ISS_LOAD_ATTEMPT_TIMEOUT_MS);
+        const buf = await res.arrayBuffer();
+        return Promise.race([
+          gltfLoader.parseAsync(buf, url),
+          new Promise((_, reject) => setTimeout(
+            () => reject(new Error(`ISS decode timed out after ${ISS_LOAD_DECODE_TIMEOUT_MS}ms: ${url}`)),
+            ISS_LOAD_DECODE_TIMEOUT_MS,
+          )),
+        ]);
+      };
+      const warn = (url, attempt, err) => {
+        console.warn(`[SPICA] ISS load failed (attempt ${attempt}): ${url} —`, err);
+      };
+      try {
+        const { url, result: gltf } = await loadIssModel(loadOnce, {
+          preferredUrl: ISS_PREFERRED_URL,
+          fallbackUrl: ISS_FALLBACK_URL,
+          onWarn: warn,
+        });
+        if (url !== ISS_PREFERRED_URL) {
+          console.warn(`[SPICA] ISS preferred model exhausted retries, loaded fallback: ${url}`);
+        }
         if (sceneCancelled) return;
         normaliseGltf(gltf.scene, 2.6);
         issGroup.add(gltf.scene);
         markModelLoaded('iss');
         noteCoreSettled('iss');
-      }, undefined, () => { noteCoreSettled('iss'); /* silent — the scene works without the ISS */ });
+      } catch (err) {
+        console.warn('[SPICA] ISS failed to load after all retries (preferred + fallback) — scene continues without it:', err);
+        noteCoreSettled('iss');
+      }
     })();
 
     // Astronaut — "Animated Floating Astronaut" by LasquetiSpice (CC-BY,

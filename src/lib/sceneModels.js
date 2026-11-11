@@ -63,10 +63,20 @@ export function resolveOptionalModel(preferredUrl, fallbackUrl, exists) {
  * missing uperesito ISS as "present" and the loader then choked on HTML.
  * A Range GET is honoured by sirv (206 + 4 bytes) for present files and
  * returns the HTML fallback for missing ones — the magic check decides.
+ *
+ * Timeout (2026-11-12): the probe used to await fetch with NO timeout,
+ * so a hanging request stalled the ISS loader IIFE forever and the
+ * station never appeared. An AbortController caps the probe at
+ * `timeoutMs` (default 8 s); a timeout is a plain `false`.
  */
-export async function probeModelUrl(url) {
+export async function probeModelUrl(url, timeoutMs = 8000) {
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
   try {
-    const res = await fetch(url, { headers: { Range: 'bytes=0-3' } });
+    const res = await fetch(url, {
+      headers: { Range: 'bytes=0-3' },
+      ...(controller ? { signal: controller.signal } : {}),
+    });
     const buf = new Uint8Array(await res.arrayBuffer());
     return (
       buf.length >= 4 &&
@@ -74,5 +84,91 @@ export async function probeModelUrl(url) {
     );
   } catch {
     return false;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+/**
+ * ISS load policy (2026-11-12 fix — the station vanished from Ronit's
+ * phone because the old probe-first loader had one silent attempt and
+ * no timeout: one transient failure = no ISS for the whole page load).
+ * The bundled preferred file is tried directly, with retries and a
+ * per-attempt network cap; the fallback gets the same treatment.
+ *   - MAX_ATTEMPTS: tries per URL before moving on.
+ *   - ATTEMPT_TIMEOUT_MS: network cap per try (fetch abort). The
+ *     decode is capped separately (DECODE_TIMEOUT_MS) because Draco
+ *     decode under SwiftShader takes 16–25 s — a single short cap over
+ *     the whole load would time out healthy decodes.
+ *   - RETRY_DELAY_MS: pause between attempts on the same URL.
+ */
+export const ISS_LOAD_MAX_ATTEMPTS = 3;
+export const ISS_LOAD_ATTEMPT_TIMEOUT_MS = 15000;
+export const ISS_LOAD_DECODE_TIMEOUT_MS = 60000;
+export const ISS_LOAD_RETRY_DELAY_MS = 1000;
+
+/**
+ * Fetch a URL with an abort timeout. Rejects on HTTP >= 400, on
+ * network failure, and on timeout — never hangs. Pure fetch wrapper,
+ * unit-tested with a mocked fetch.
+ */
+export async function fetchWithTimeout(url, timeoutMs = ISS_LOAD_ATTEMPT_TIMEOUT_MS) {
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+  try {
+    const res = await fetch(url, { ...(controller ? { signal: controller.signal } : {}) });
+    if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
+    return res;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+/**
+ * Call `loadFn(url)` with retries: up to `maxAttempts` tries, `delayMs`
+ * between them, `onWarn(url, attempt, err)` on every failure. Returns
+ * the first success; throws the last error after the final attempt.
+ * `loadFn` is injected so the policy is unit-testable without WebGL.
+ */
+export async function loadWithRetries(loadFn, url, {
+  maxAttempts = ISS_LOAD_MAX_ATTEMPTS,
+  delayMs = ISS_LOAD_RETRY_DELAY_MS,
+  onWarn,
+} = {}) {
+  let lastError;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await loadFn(url);
+    } catch (err) {
+      lastError = err;
+      if (onWarn) onWarn(url, attempt, err);
+      if (attempt < maxAttempts && delayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+  }
+  throw lastError;
+}
+
+/**
+ * ISS load plan: try the preferred model (iss-uperesito.glb) with
+ * retries, then the fallback (iss-a.glb) with the same retries.
+ * Returns `{ url, result }` for the URL that loaded. Throws the
+ * fallback's last error only after every attempt on both URLs failed.
+ */
+export async function loadIssModel(loadFn, {
+  preferredUrl = ISS_PREFERRED_URL,
+  fallbackUrl = ISS_FALLBACK_URL,
+  maxAttempts = ISS_LOAD_MAX_ATTEMPTS,
+  delayMs = ISS_LOAD_RETRY_DELAY_MS,
+  onWarn,
+} = {}) {
+  try {
+    const result = await loadWithRetries(loadFn, preferredUrl, { maxAttempts, delayMs, onWarn });
+    return { url: preferredUrl, result };
+  } catch {
+    // Preferred exhausted — same retry policy on the fallback.
+    const result = await loadWithRetries(loadFn, fallbackUrl, { maxAttempts, delayMs, onWarn });
+    return { url: fallbackUrl, result };
   }
 }
