@@ -94,4 +94,9 @@ describe('scene assets shipped in public/ (SCENE_MODELS.md)', () => {
     expect(interior.slice(0, 4).toString('ascii')).toBe('glTF');
     expect(interior.length).toBeGreaterThan(1000000); // ~8.16 MB (4096 texture, 2026-11-11 blur fix)
   });
+  it('the full-station interior tour is present and real (Academy upload, landed 2026-11-11 evening)', () => {
+    const tour = readFileSync(join(pub, 'models/academy-iss-interior.glb'));
+    expect(tour.slice(0, 4).toString('ascii')).toBe('glTF');
+    expect(tour.length).toBeGreaterThan(30000000); // ~37.11 MB, 234 meshes, 29 textures, no compression
+  });
 });

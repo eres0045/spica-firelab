@@ -30,12 +30,16 @@
  * - Crew Dragon (dannzjs, CC-BY): small capsule docked just below-right
  *   of the ISS in the exterior view. Int-Ball (pergamond, CC-BY): the
  *   JAXA ISS interior drone, a small floating prop in the interior view.
- * - ISS interior: the patrick- module-interior photogrammetry scan (CC-BY),
- *   landed 2026-11-11 as `public/models/iss-interior-scan.glb` — lazy-
- *   loaded only when the user switches to the interior view. A load
- *   failure silently keeps the glovebox close-up (no probe — a Range probe
- *   would double-download a ~6 MB scan on hosts that ignore Range).
- *   Never a broken state.
+ * - ISS interior: the FULL walkable station tour — "ISS Interior" by
+ *   Space Explorers Academy (CC BY-NC-SA 4.0, Sketchfab), the same
+ *   NASA/JSC IGOAL photogrammetry as the Raiz tour (which is not
+ *   downloadable) — landed 2026-11-11 as
+ *   `public/models/academy-iss-interior.glb`, lazy-loaded only when the
+ *   user switches to the interior view. A load failure silently keeps
+ *   the glovebox close-up (no probe — a Range probe would double-
+ *   download a ~37 MB tour on hosts that ignore Range). Never a broken
+ *   state. The glovebox sits in DESTINY (US Lab) — see DESTINY below.
+ *   The old single-module Patrick scan stays on disk, unloaded.
  * - The GLOVEBOX is code-built (a rack-mounted MSG-style unit set into
  *   the module wall: dark metal cabinet, two glove ports, control strip,
  *   glass ONLY on the front face of the work volume — never a free-floating
@@ -72,7 +76,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { ATMOSPHERES, detectWebGL } from '../lib/data.js';
 import {
-  ISS_PREFERRED_URL, ISS_FALLBACK_URL, INTERIOR_SCAN_URL,
+  ISS_PREFERRED_URL, ISS_FALLBACK_URL, INTERIOR_TOUR_URL,
   resolveOptionalModel, probeModelUrl, pub,
 } from '../lib/sceneModels.js';
 
@@ -153,15 +157,15 @@ const FLAME_SPRITE_SCALE = 0.7;
 // middle of the frame anymore.
 const CAM_EXTERIOR = { view: 'exterior', pos: [4.4, 2.3, 6.4], target: [-1.5, -1.2, -3.5], min: 4, max: 16 };
 // Interior-first framing (2026-11-11, Ronit: the interior view is the hero
-// for the science): the camera looks DOWN THE MODULE AXIS from +Z at the
+// for the science): the camera looks DOWN DESTINY'S AXIS from +Z at the
 // rack glovebox mounted in the module wall, flame clearly visible through
-// the front glass. Measured, not guessed: scripts/scan-raycast-probe.mjs
-// raycasts the real scan geometry — the scan is a long thin corridor (raw
-// 15.26 long x ~3.5 diameter), and only near-axis directions have a clear
-// sightline to the flame (13/400 sampled directions at the old scale;
-// diagonal views are blocked by racks at ~1.1 units). The scan is also
-// scaled up (see loadInteriorScan) so the corridor is ~5 wide and the
-// 3.6-wide rack cabinet fits INSIDE it instead of poking through the walls.
+// the front glass. Measured, not guessed: the tour places Destiny (US
+// Lab) with its free aisle centred on the glovebox — aisle x ±1.63,
+// y -1.68..1.55, z ±6.21 in scene units (see DESTINY) — and the
+// sphere-map probe raycasts the real tour geometry from the clamped
+// camera poses (scripts/clamp-sphere-map-tour.mjs). The camera stays
+// inside Destiny at every preset and zoom; the hatch openings at both
+// ends show Harmony/Unity beyond, never a black void.
 const CAM_INTERIOR = { view: 'interior', pos: [0.1, 0.1, 4.6], target: [0, 0.1, -0.7], min: 1.2, max: 9 };
 // Interior zoom-out max raised 6 -> 9 (2026-11-11, Ronit: "can't zoom
 // out"): the camera lands at 5.3, so max 6 allowed one small step and
@@ -191,46 +195,63 @@ export function zoomDistance(current, factor, min, max) {
 }
 
 /**
- * Interior wall clamp — measured from the real scan geometry (see
- * blur-investigation/sphere-map-results.txt and clamp-shape-results*.txt):
- * the scan corridor spans x ±2.47, y ±2.60, z ±10.90 (normalised,
- * centred at the origin), and OrbitControls only clamps distance-from-
- * target, never distance-from-wall — so at mid-zoom (radius 3) the
- * camera could sit 0.02 units from a rack, and orbiting sideways left
- * the corridor entirely. A box clamp FAILED (its corners stick into
- * the racks: R6 26% mush, R9 33%); a fixed cylinder FAILED too (racks
- * protrude to lateral ~1.2 at scattered z: R9 8% central mush); a
- * voxel grid FAILED (Euclidean clearance is the wrong metric — the
- * zoom-in R1.2 +x pose is 0.19u from a surface BEHIND the camera and
- * its view is clean). The shape that measures 0/150 central mush, 0
- * soft and 0 edge mush at every radius (1.2, 3, 5.3, 6, 9) is a CONE
- * around the corridor axis through the flame centre plus a Z-CAP:
- *   - lateral cap 1.2 for R <= 3, else 3.6/R (R6: 0.60, R9: 0.40) —
- *     the racks live off-axis at mid-corridor, so the camera must hug
- *     the axis when far from the target; zooming in frees the orbit
- *     (at R1.2 the cap is the whole sphere), which is the natural feel;
- *   - |z| <= 6.0 — the corridor ends carry structures near the axis
- *     from z ~6.7 on (+z) and ~-9.6 (-z); 6.0 clears them (z6.5 still
- *     leaves 18/150 edge mush at R9, z6.0 leaves 0).
- * The clamp projects the offset onto the cone (radius-preserving, so
- * the zoom level never changes while dragging) and then caps z (a wall
- * collision — the radius settles at the wall). Because it projects, the
- * camera slides along the clamp surface instead of snapping. Pure —
- * unit-tested; the sphere-map probe re-runs through it
- * (scripts/clamp-sphere-map.mjs).
+ * Interior wall clamp — measured from the real tour geometry (see
+ * blur-investigation/clamp-sphere-map-tour-results.txt and
+ * scripts/destiny-clearance.mjs): Destiny's free aisle is x ±1.63,
+ * y -1.68..1.55 around the flame centre, and OrbitControls only clamps
+ * distance-from-target, never distance-from-wall — so at mid-zoom the
+ * camera could sit centimetres from a rack face, and orbiting sideways
+ * left the aisle entirely. The old single-module scan was a clean
+ * cylinder, so a symmetric cone + z-cap worked there (0/150 mush at
+ * every radius); Destiny is NOT a clean cylinder — the rack faces sit
+ * at x ≈ ±1.63, the CEVIS bike + mount protrude into the aisle at
+ * z 0..2.35, x 0.6+ (the mount's face is 0.07u from a camera at
+ * lateral 1.0, z 0.3), and the bulkhead domes close in past z ≈ 4.7.
+ * The shape that fits is a CONE around the module axis through the
+ * flame centre plus an ASYMMETRIC Z-RANGE, with a TIGHTER near cap
+ * only where the bike lives:
+ *   - lateral cap 1.0 for R <= 3, else 3.0/R (R6: 0.50, R9: 0.33) —
+ *     the far cone is the old validated one (0/150 mush at R5.3/6/9
+ *     with lateral 1.0); zooming in frees the orbit (at R1.2 the cap
+ *     is most of the sphere), which is the natural feel;
+ *   - in the bike zone (z <= 2.5) the near cap tightens to 0.55 —
+ *     the mount's face is 0.07u from a camera at lateral 1.0, z 0.3,
+ *     and 0.55 is the widest cap that measures 0/150 mush at R1.2
+ *     and R3 there (lateral 0.6 still leaves 0/150 mush but 12/150
+ *     soft at R3; 0.55 leaves 3/150 soft — the bike itself 0.64u off,
+ *     a solid object in frame, not a blur source);
+ *   - z in [0.3, 5.5] — the camera never goes behind the glovebox
+ *     glass (z 0.02) into the MSS_AV block, and never past the forward
+ *     bulkhead dome (z ~4.7+ at the edges; the Inside preset lands at
+ *     4.6 and the portrait framing at 5.395, so 5.5 keeps both
+ *     unclamped with margin). The aft bulkhead is unreachable behind
+ *     the glovebox,
+ *     so no negative z-cap is needed — the floor is the glass.
+ * The clamp caps z first (so the bike zone is judged on the position
+ * the camera will actually land at), projects the offset onto the cone
+ * (radius-preserving, so the zoom level never changes while dragging),
+ * then caps z again (a wall collision — the radius settles at the
+ * wall). Because it projects, the camera slides along the clamp
+ * surface instead of snapping. Pure — unit-tested; the sphere-map
+ * probe re-runs through it (scripts/clamp-sphere-map-tour.mjs).
  */
-export const INTERIOR_CLAMP = { lateral: 1.2, knee: 3, zMax: 6.0 };
+export const INTERIOR_CLAMP = { lateral: 1.0, knee: 3, mountLateral: 0.55, mountZMax: 2.5, zMin: 0.3, zMax: 5.5 };
 export function clampInteriorCamera(pos) {
   const tx = FLAME_CENTER.x, ty = FLAME_CENTER.y, tz = FLAME_CENTER.z;
   const ox = pos[0] - tx, oy = pos[1] - ty, oz = pos[2] - tz;
   const R = Math.hypot(ox, oy, oz);
   if (R < 1e-9) return [tx, ty, tz];
   const lat = Math.hypot(ox, oy);
-  const cap = Math.min(R <= INTERIOR_CLAMP.knee ? INTERIOR_CLAMP.lateral : (INTERIOR_CLAMP.lateral * INTERIOR_CLAMP.knee) / R, R);
+  // Cap z first: the bike-zone test must use the z the camera will
+  // actually land at (an input behind the glass would otherwise get
+  // the loose cap, then land at z 0.3 right on the mount's face).
+  const zCapped = Math.min(INTERIOR_CLAMP.zMax, Math.max(INTERIOR_CLAMP.zMin, pos[2]));
+  const nearCap = zCapped <= INTERIOR_CLAMP.mountZMax ? INTERIOR_CLAMP.mountLateral : INTERIOR_CLAMP.lateral;
+  const cap = Math.min(nearCap, (INTERIOR_CLAMP.lateral * INTERIOR_CLAMP.knee) / R, R);
   // Nothing to clamp: return the input exactly (no float drift from
   // re-adding the target offset — the render loop calls this every
   // frame, and the presets must land bit-identical).
-  if (lat <= cap && pos[2] >= -INTERIOR_CLAMP.zMax && pos[2] <= INTERIOR_CLAMP.zMax) return [pos[0], pos[1], pos[2]];
+  if (lat <= cap && pos[2] >= INTERIOR_CLAMP.zMin && pos[2] <= INTERIOR_CLAMP.zMax) return [pos[0], pos[1], pos[2]];
   let nx = ox, ny = oy, nz = oz;
   if (lat > cap && lat > 1e-9) {
     const k = cap / lat;
@@ -241,8 +262,47 @@ export function clampInteriorCamera(pos) {
     // across the target.
     nz = Math.sign(oz || 1) * Math.sqrt(Math.max(0, R * R - cap * cap));
   }
-  const z = Math.min(INTERIOR_CLAMP.zMax, Math.max(-INTERIOR_CLAMP.zMax, tz + nz));
+  const z = Math.min(INTERIOR_CLAMP.zMax, Math.max(INTERIOR_CLAMP.zMin, tz + nz));
   return [tx + nx, ty + ny, z];
+}
+
+/**
+ * Destiny placement for the full-station interior tour (Space Explorers
+ * Academy, CC BY-NC-SA 4.0 — the same NASA/JSC IGOAL scan as the Raiz
+ * tour, which is not downloadable). Measured from the GLB with
+ * ~/workspace/tmp-gltf-convert/world-bbox.mjs (true world-space bboxes,
+ * transforms included): Destiny (US_Lab) bbox centre
+ * (63.32, 0.30, -37.63), size (83.83, 42.92, 33.74) model units — long
+ * axis X, width Z. BUT the bbox centre is NOT the aisle: raycast
+ * clearance from the module axis (scripts/destiny-clearance.mjs) puts
+ * the rack faces at model Z -44.72 (+X side) and -22.78 (-X side), so
+ * the free aisle is centred on model Z -33.75, and the tour is centred
+ * on THAT (0.58 scene units off the bbox centre). The tour is scaled
+ * so Destiny's width (model Z, 33.74) is 5.0 scene units — the same
+ * corridor width the old single-module scan had — rotated so its long
+ * axis (model X) lies on scene Z, and translated so the AISLE centre
+ * lands on the glovebox at the origin. The aisle then spans x ±1.63,
+ * y -1.68..1.55, z ±6.21 in scene units; the 3.6-wide glovebox embeds
+ * ~0.18 into the rack faces on each side, exactly like a real rack
+ * unit installed in its bay. The camera clamp (cone + z-range) is
+ * tuned against that aisle — see scripts/clamp-sphere-map-tour.mjs.
+ * Pure — unit-tested (the transform must put the aisle centre at the
+ * origin and Destiny's width at exactly 5.0).
+ */
+export const DESTINY = {
+  center: [63.32, 0.30, -33.75],
+  widthModel: 33.74,
+  widthScene: 5.0,
+};
+export function destinyInteriorTransform() {
+  const scale = DESTINY.widthScene / DESTINY.widthModel;
+  const rotationY = -Math.PI / 2;
+  // World = T + R·(S·p); want Destiny's centre C at the origin, so
+  // T = -R·(S·C). THREE applies M = T·R·S to the scene object, which is
+  // exactly this composition.
+  const scaled = new THREE.Vector3(...DESTINY.center).multiplyScalar(scale);
+  const rotated = scaled.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), rotationY);
+  return { scale, rotationY, position: rotated.negate().toArray() };
 }
 
 /**
@@ -668,32 +728,32 @@ export default function FireLab3D({ o2, pressure, flow, material, materialClass,
       markModelLoaded('lro');
     }, undefined, () => { /* silent — the scene works without the LRO */ }));
 
-    // ISS interior scan (patrick-, CC-BY) — lazy: the GLB itself loads
-    // only the first time the user switches to the interior view, and a
-    // load failure silently keeps the glovebox close-up (no probe — a
-    // Range probe would double-download a possibly 20 MB scan on hosts
-    // that ignore Range). Until it exists, the interior view is the
-    // glovebox close-up (no broken state, no error).
+    // ISS interior tour (Space Explorers Academy, CC BY-NC-SA 4.0) —
+    // lazy: the GLB itself loads only the first time the user switches
+    // to the interior view, and a load failure silently keeps the
+    // glovebox close-up (no probe — a Range probe would double-download
+    // a ~37 MB tour on hosts that ignore Range). Until it exists, the
+    // interior view is the glovebox close-up (no broken state, no error).
     const interiorRef = { group: null, loading: false, loaded: false };
     const loadInteriorScan = () => {
       if (interiorRef.loading || interiorRef.loaded) return;
       interiorRef.loading = true;
-      gltfLoader.load(INTERIOR_SCAN_URL, (gltf) => {
+      gltfLoader.load(INTERIOR_TOUR_URL, (gltf) => {
         if (sceneCancelled) return;
         const group = new THREE.Group();
-        // Normalised to 21.8, NOT 9: the scan is a long thin corridor (raw
-        // 15.26 long x ~3.5 diameter), and size 9 made it only ~2.1 wide —
-        // narrower than the 3.6-wide rack cabinet, so the cabinet would
-        // poke through the walls and racks would block the flame from every
-        // side angle (raycast probe: diagonal sightlines hit at ~1.1
-        // units). At 21.8 the corridor is ~5 wide, the cabinet fits
-        // inside it with room, and the axis sightline is clear (probe:
-        // 13.5+ units). See scripts/scan-raycast-probe.mjs for the
-        // measurement.
-        normaliseGltf(gltf.scene, 21.8);
-        // Same anisotropy fix for the scan's own texture (the GLB map
-        // stretched over a whole module, viewed at grazing angles from
-        // inside the corridor — the main blur cause, see loadTex above).
+        // Destiny placement (see DESTINY / destinyInteriorTransform):
+        // the whole station is scaled so Destiny is 5.0 wide and its
+        // centre sits on the glovebox at the origin — NOT
+        // normaliseGltf(21.8): the tour's longest side is the whole
+        // station (~30 units after scaling), and normalising that to
+        // 21.8 would shrink Destiny below the 3.6-wide rack cabinet.
+        const t = destinyInteriorTransform();
+        gltf.scene.scale.setScalar(t.scale);
+        gltf.scene.rotation.y = t.rotationY;
+        gltf.scene.position.set(t.position[0], t.position[1], t.position[2]);
+        // Same anisotropy fix for the tour's own textures (photogrammetry
+        // maps stretched over whole modules, viewed at grazing angles
+        // from inside Destiny — the main blur cause, see loadTex above).
         gltf.scene.traverse((o) => {
           const mats = Array.isArray(o.material) ? o.material : (o.material ? [o.material] : []);
           for (const m of mats) {

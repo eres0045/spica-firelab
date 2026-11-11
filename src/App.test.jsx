@@ -24,7 +24,7 @@ describe('App — minimal fire lab (jsdom has no WebGL)', () => {
     expect(screen.getByText(/The 3D fire lab needs WebGL/)).toBeTruthy();
     // Honesty + credits lines live in the panel now.
     expect(screen.getByText(/Flame is illustrative — verdicts come from real NASA PSI test data\./)).toBeTruthy();
-    expect(screen.getByText(/Models CC-BY: uperesito \(ISS\) · Patrick \(interior\) · LasquetiSpice \(astronaut\) · dannzjs \(Dragon\) · pergamond \(Int-Ball\) · Sun texture: Solar System Scope, CC BY 4\.0 · Data: NASA PSI/)).toBeTruthy();
+    expect(screen.getByText(/Models: uperesito \(ISS, CC-BY\) · Space Explorers Academy \(ISS interior, CC BY-NC-SA 4\.0\) · LasquetiSpice \(astronaut, CC-BY\) · dannzjs \(Dragon, CC-BY\) · pergamond \(Int-Ball, CC-BY\) · Sun texture: Solar System Scope, CC BY 4\.0 · Data: NASA PSI/)).toBeTruthy();
   });
 
   it('the only UI is the panel + title + camera section — no dashboard anywhere', () => {
@@ -129,7 +129,7 @@ describe('App — minimal fire lab (jsdom has no WebGL)', () => {
     // The whole panel is gone — sliders, verdict line, credits.
     expect(screen.queryByLabelText('Oxygen percent')).toBeNull();
     expect(screen.queryByText(/PARTIAL · O₂ covered/)).toBeNull();
-    expect(screen.queryByText(/Models CC-BY:/)).toBeNull();
+    expect(screen.queryByText(/^Models:/)).toBeNull();
     // Title chip stays; the camera section is IN the panel, so it is gone too.
     expect(screen.getByText('The 34% Question')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Zoom in' })).toBeNull();

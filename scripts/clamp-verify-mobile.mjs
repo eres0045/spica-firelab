@@ -1,8 +1,9 @@
 // Mobile clamp verification (2026-11-11): portrait 390x844 (Ron's
 // phone class), Inside view — landing pose, hard drags, zoom-out.
 // Logs __spicaCam after each move; the camera must stay inside the
-// cone+z-cap (lateral <= 1.2 for R<=3 else 3.6/R around the axis
-// through the flame centre [0,0.1,-0.7], |z| <= 6.0) and the landing
+// cone+z-range (lateral <= 0.55 for R<=3 else 1.65/R around the axis
+// through the flame centre [0,0.1,-0.7], 0.3 <= z <= 5.5 — Destiny's
+// aisle, see INTERIOR_CLAMP in FireLab3D.jsx) and the landing
 // pose must match the desktop one (portrait-scaled).
 // Screenshots under preview/clamp-mobile-*.png.
 import { chromium } from 'playwright-core';
@@ -17,8 +18,12 @@ const inCone = (p) => {
   const ox = p[0] - TGT[0], oy = p[1] - TGT[1], oz = p[2] - TGT[2];
   const R = Math.hypot(ox, oy, oz);
   const lat = Math.hypot(ox, oy);
-  const cap = R <= 3 ? 1.2 : 3.6 / R;
-  return lat <= cap + 0.01 && Math.abs(p[2]) <= 6.0 + 0.01;
+  // Two-zone cone (see INTERIOR_CLAMP in FireLab3D.jsx): the bike
+  // zone (z <= 2.5) caps lateral at 0.55, elsewhere 1.0; far cone
+  // 3.0/R in both zones.
+  const nearCap = p[2] <= 2.5 ? 0.55 : 1.0;
+  const cap = Math.min(nearCap, 3.0 / R, R);
+  return lat <= cap + 0.01 && p[2] >= 0.3 - 0.01 && p[2] <= 5.5 + 0.01;
 };
 
 const browser = await chromium.launch({

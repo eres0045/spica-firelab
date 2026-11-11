@@ -311,7 +311,7 @@ export default function App() {
                 Flame is illustrative — verdicts come from real NASA PSI test data.
               </p>
               <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
-                Models CC-BY: uperesito (ISS) · Patrick (interior) · LasquetiSpice (astronaut) · dannzjs (Dragon) · pergamond (Int-Ball) · Sun texture: Solar System Scope, CC BY 4.0 · Data: NASA PSI
+                Models: uperesito (ISS, CC-BY) · Space Explorers Academy (ISS interior, CC BY-NC-SA 4.0) · LasquetiSpice (astronaut, CC-BY) · dannzjs (Dragon, CC-BY) · pergamond (Int-Ball, CC-BY) · Sun texture: Solar System Scope, CC BY 4.0 · Data: NASA PSI
               </p>
             </>
           )}

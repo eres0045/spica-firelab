@@ -14,6 +14,11 @@
  *   - iss-interior-scan.glb — ISS module interior photogrammetry scan by
  *     patrick- (CC-BY, Sketchfab). Until it lands, the interior view
  *     falls back to the glovebox close-up — never a broken state.
+ *     SUPERSEDED 2026-11-11 evening: the full walkable ISS interior tour
+ *     (Space Explorers Academy, CC BY-NC-SA 4.0 — the same NASA/JSC
+ *     IGOAL scan as the Raiz tour, which is not downloadable) replaces
+ *     it as `academy-iss-interior.glb` (INTERIOR_TOUR_URL). The old
+ *     single-module file stays on disk, unloaded.
  *
  * The probe is a Range GET + glTF-magic check (see probeModelUrl): a 404
  * on one of these two URLs is the DESIGNED fallback signal, not an error.
@@ -34,6 +39,8 @@ export const pub = (p) => `${PUB}${p}`;
 export const ISS_PREFERRED_URL = pub('models/iss-uperesito.glb');
 export const ISS_FALLBACK_URL = pub('models/iss-a.glb');
 export const INTERIOR_SCAN_URL = pub('models/iss-interior-scan.glb');
+/** Full walkable ISS interior tour (Space Explorers Academy, CC BY-NC-SA 4.0). */
+export const INTERIOR_TOUR_URL = pub('models/academy-iss-interior.glb');
 
 /** Pure resolver — unit-tested. `exists` is a predicate over a URL. */
 export function resolveOptionalModel(preferredUrl, fallbackUrl, exists) {

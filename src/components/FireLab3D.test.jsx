@@ -7,8 +7,9 @@ import { describe, it, expect } from 'vitest';
 import { existsSync, statSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import * as THREE from 'three';
 import { render, screen } from '@testing-library/react';
-import FireLab3D, { flameParams, CAMERA_PRESETS, zoomDistance, clampInteriorCamera, INTERIOR_CLAMP, FLAME_CENTER } from './FireLab3D.jsx';
+import FireLab3D, { flameParams, CAMERA_PRESETS, zoomDistance, clampInteriorCamera, INTERIOR_CLAMP, FLAME_CENTER, DESTINY, destinyInteriorTransform } from './FireLab3D.jsx';
 
 describe('flameParams — the flame visibly responds to the controls', () => {
   it('grows with O2 (small blue ball at low O2, big orange ball at high O2)', () => {
@@ -75,13 +76,14 @@ describe('CAMERA_PRESETS — the panel camera section (no top-right toggle)', ()
     }
   });
   it('Inside targets the flame centre (inside the glovebox work volume), down the module axis', () => {
-    // Interior-first framing (2026-11-11): the scan is a long thin
-    // corridor (raw 15.26 long x ~3.5 diameter) and only near-axis
-    // directions have a clear sightline to the flame — measured with
-    // scripts/scan-raycast-probe.mjs (diagonal views hit racks at ~1.1
-    // units; the axis is clear for 13.5+ units). So the camera sits on
-    // the +Z axis, ~5 units out, aiming at the flame centre inside the
-    // glovebox work volume. The Chamber preset is the same target, closer.
+    // Interior-first framing (2026-11-11): Destiny (US Lab) is centred
+    // on the glovebox — x ±2.50, y ±3.18, z ±6.21 in scene units (see
+    // DESTINY) — and only near-axis directions have a clear sightline
+    // to the flame; the sphere-map probe raycasts the real tour geometry
+    // from the clamped poses (scripts/clamp-sphere-map-tour.mjs). So the
+    // camera sits on the +Z axis, ~5 units out, aiming at the flame
+    // centre inside the glovebox work volume. The Chamber preset is the
+    // same target, closer.
     expect(CAMERA_PRESETS.inside.target).toEqual([FLAME_CENTER.x, FLAME_CENTER.y, FLAME_CENTER.z]);
     // Chamber aims a touch below the flame (y 0.0 vs 0.1) so the whole
     // glovebox front — window + control strip — sits centred, not just the
@@ -113,49 +115,54 @@ describe('CAMERA_PRESETS — the panel camera section (no top-right toggle)', ()
 });
 
 describe('clampInteriorCamera — the camera can never reach the mush zone', () => {
-  // Measured from the real scan (blur-investigation/clamp-shape-
-  // results5.txt): a box clamp failed (corners stick into racks),
-  // a fixed cylinder failed (racks protrude to lateral ~1.2), and a
-  // voxel grid failed (Euclidean clearance is the wrong metric). The
-  // shape that measures 0/150 central mush, 0 soft and 0 edge mush at
-  // every radius (1.2, 3, 5.3, 6, 9) is a cone around the corridor
-  // axis through the flame centre plus a z-cap: lateral 1.2 for R<=3,
-  // else 3.6/R; |z| <= 6.0 (the end structures start ~z 6.7).
+  // Measured from the real tour (blur-investigation/clamp-sphere-map-
+  // tour-results.txt, scripts/destiny-clearance.mjs): Destiny's aisle
+  // is x ±1.63 and the CEVIS bike + mount protrude into it at z 0..2.35,
+  // x 0.6+. The shape that measures 0/150 mush at every radius
+  // (1.2, 3, 5.3, 6, 9) is a cone around the module axis through the
+  // flame centre plus an asymmetric z-range, with a tighter near cap
+  // in the bike zone (z <= 2.5): lateral 1.0 for R<=3 else 3.0/R, but
+  // 0.55 in the bike zone; z in [0.3, 5.5] (never behind the glovebox
+  // glass, never past the forward bulkhead dome).
   const close = (got, want) => {
     expect(got.length).toBe(3);
     got.forEach((v, i) => expect(v).toBeCloseTo(want[i], 3));
   };
 
-  it('has the measured cone + z-cap constants', () => {
-    expect(INTERIOR_CLAMP.lateral).toBe(1.2);
+  it('has the measured cone + z-range constants', () => {
+    expect(INTERIOR_CLAMP.lateral).toBe(1.0);
     expect(INTERIOR_CLAMP.knee).toBe(3);
-    expect(INTERIOR_CLAMP.zMax).toBe(6.0);
-    // Derived lateral caps: R6 -> 0.60, R9 -> 0.40.
-    expect(3.6 / 6).toBeCloseTo(0.6, 10);
-    expect(3.6 / 9).toBeCloseTo(0.4, 10);
+    expect(INTERIOR_CLAMP.mountLateral).toBe(0.55);
+    expect(INTERIOR_CLAMP.mountZMax).toBe(2.5);
+    expect(INTERIOR_CLAMP.zMin).toBe(0.3);
+    expect(INTERIOR_CLAMP.zMax).toBe(5.5);
+    // Derived lateral caps: R6 -> 0.50, R9 -> 0.33.
+    expect(3.0 / 6).toBeCloseTo(0.5, 10);
+    expect(3.0 / 9).toBeCloseTo(0.333, 3);
   });
 
   it('leaves positions inside the cone untouched', () => {
     expect(clampInteriorCamera([0.1, 0.1, 4.6])).toEqual([0.1, 0.1, 4.6]); // Inside landing
     expect(clampInteriorCamera([0.4, 0.35, 3.6])).toEqual([0.4, 0.35, 3.6]); // Chamber landing
-    expect(clampInteriorCamera([0, 0, 0])).toEqual([0, 0, 0]);
-    expect(clampInteriorCamera([1.0, 0.1, 2.3])).toEqual([1.0, 0.1, 2.3]); // inside the cone at R~3.16
+    expect(clampInteriorCamera([0.5, 0.1, 2.3])).toEqual([0.5, 0.1, 2.3]); // inside the bike-zone cone at R~3.04
+    expect(clampInteriorCamera([0.7, 0.1, 3.0])).toEqual([0.7, 0.1, 3.0]); // outside the bike zone, inside the loose cone
   });
 
   it('projects outside positions onto the cone (radius-preserving), then caps z', () => {
-    // Just outside the cone at R~3.23 (lateral 1.2 vs cap 1.114).
-    close(clampInteriorCamera([1.2, 0.1, 2.3]), [1.114, 0.1, 2.333]);
-    // The old worst mush point (1.1, 2.13, -2.61): a rack 0.017u away.
-    // R ~3.0, lateral 2.31 -> capped to 1.2, radius kept.
-    close(clampInteriorCamera([1.1, 2.13, -2.61]), [0.572, 1.155, -3.446]);
-    // Sideways out of the corridor: lateral capped, then z capped at 6.0.
-    close(clampInteriorCamera([5, 0.1, 4.6]), [0.494, 0.1, 6.0]);
-    close(clampInteriorCamera([-5, 0.1, 4.6]), [-0.494, 0.1, 6.0]);
-    // The v3 R9 worst point (-1.17, -0.17, -9.62): end structure 0.018u away.
-    close(clampInteriorCamera([-1.17, -0.17, -9.62]), [-0.39, 0.01, -6.0]);
-    // Past the corridor ends: only the z-cap bites.
-    expect(clampInteriorCamera([0.1, 0.1, 12])).toEqual([0.1, 0.1, 6.0]);
-    expect(clampInteriorCamera([0.1, 0.1, -12])).toEqual([0.1, 0.1, -6.0]);
+    // Just outside the bike-zone cone at R~3.23 (lateral 1.2 vs cap 0.55).
+    close(clampInteriorCamera([1.2, 0.1, 2.3]), [0.55, 0.1, 2.484]);
+    // Behind the glovebox glass: the cone projects, then z floors at 0.3.
+    close(clampInteriorCamera([1.1, 2.13, -2.61]), [0.262, 0.584, 0.3]);
+    // Sideways out of the module: lateral capped, then z capped at 5.5.
+    close(clampInteriorCamera([5, 0.1, 4.6]), [0.412, 0.1, 5.5]);
+    close(clampInteriorCamera([-5, 0.1, 4.6]), [-0.412, 0.1, 5.5]);
+    // Far behind the glass: lateral capped to the far cone, z floored.
+    close(clampInteriorCamera([-1.17, -0.17, -9.62]), [-0.325, 0.025, 0.3]);
+    // Past the module ends: only the z-range bites.
+    expect(clampInteriorCamera([0.1, 0.1, 12])).toEqual([0.1, 0.1, 5.5]);
+    expect(clampInteriorCamera([0.1, 0.1, -12])).toEqual([0.1, 0.1, 0.3]);
+    // A point just behind the glass (z 0) floors to 0.3.
+    expect(clampInteriorCamera([0, 0, 0])).toEqual([0, 0, 0.3]);
   });
 
   it('is idempotent — clamping a clamped position changes nothing', () => {
@@ -176,13 +183,61 @@ describe('clampInteriorCamera — the camera can never reach the mush zone', () 
   });
 
   it('zoom-in to the min radius can never leave the cone from the Inside target', () => {
-    // Any point within 1.2 of the target [0, 0.1, -0.7] has lateral <=
-    // 1.2 (the cap at R<=3) and z in [-1.9, 0.5] (inside +-6.0).
+    // Points within 1.2 of the target [0, 0.1, -0.7] that stay in
+    // front of the glass (z >= 0.3) and inside the bike-zone cap
+    // (lateral <= 0.55) are untouched.
     const t = CAMERA_PRESETS.inside.target;
-    for (const d of [[1.2, 0, 0], [0, 1.2, 0], [0, 0, 1.2], [-1.2, 0, 0], [0, -1.2, 0], [0.7, 0.7, 0.7]]) {
+    for (const d of [[0, 0, 1.2], [0.5, 0, 1.0], [-0.5, 0, 1.0], [0, 0.5, 1.0], [0, -0.5, 1.0], [0.35, 0.35, 1.0]]) {
       const p = t.map((v, i) => v + d[i]);
       expect(clampInteriorCamera(p)).toEqual(p);
     }
+    // Sideways at the min radius slides along the cone to the glass floor.
+    close(clampInteriorCamera([1.2, 0.1, -0.7]), [0.55, 0.1, 0.367]);
+  });
+});
+
+describe('destinyInteriorTransform — the full-station tour lands Destiny on the glovebox', () => {
+  // Measured from the Academy GLB (world-bbox probe): Destiny (US_Lab)
+  // bbox centre (63.32, 0.30, -37.63), size (83.83, 42.92, 33.74) model
+  // units — long axis X, width Z. BUT the bbox centre is NOT the aisle:
+  // the rack faces sit at model Z -44.72 and -22.78, so the free aisle
+  // is centred on model Z -33.75 (DESTINY.center). The tour is scaled
+  // so Destiny's width is 5.0 scene units (the old corridor width),
+  // rotated so its long axis lies on scene Z, and translated so the
+  // AISLE centre is the origin.
+  it('scales Destiny width to exactly 5.0 and rotates its long axis onto scene Z', () => {
+    const t = destinyInteriorTransform();
+    expect(t.scale).toBeCloseTo(5.0 / 33.74, 5);
+    expect(t.rotationY).toBeCloseTo(-Math.PI / 2, 10);
+    expect(DESTINY.widthModel * t.scale).toBeCloseTo(5.0, 6); // width
+    expect(83.83 * t.scale).toBeCloseTo(12.42, 2); // length
+    expect(42.92 * t.scale).toBeCloseTo(6.36, 2); // height
+  });
+
+  it('puts the aisle centre at the origin, so the glovebox sits in Destiny\'s aisle', () => {
+    const t = destinyInteriorTransform();
+    // world = T + R·(S·C): apply by hand and check it lands on the origin.
+    const c = new THREE.Vector3(...DESTINY.center).multiplyScalar(t.scale);
+    c.applyAxisAngle(new THREE.Vector3(0, 1, 0), t.rotationY);
+    c.add(new THREE.Vector3(...t.position));
+    expect(c.length()).toBeLessThan(0.01);
+    // The position is the negative rotated scaled aisle centre.
+    expect(t.position[0]).toBeCloseTo(-5.0, 2);
+    expect(t.position[1]).toBeCloseTo(-0.044, 2);
+    expect(t.position[2]).toBeCloseTo(-9.38, 2);
+    // Destiny's bbox centre (63.32, 0.30, -37.63) lands 0.58 off the
+    // aisle on +X, so Destiny spans x [-1.92, 3.08], y ±3.18, z ±6.21:
+    // the aisle (x ±1.63) is centred on the glovebox, and the 3.6-wide
+    // glovebox embeds ~0.18 into the rack faces on each side.
+    const b = new THREE.Vector3(63.32, 0.30, -37.63).multiplyScalar(t.scale);
+    b.applyAxisAngle(new THREE.Vector3(0, 1, 0), t.rotationY);
+    b.add(new THREE.Vector3(...t.position));
+    expect(b.x).toBeCloseTo(0.575, 3);
+    expect(b.y).toBeCloseTo(0, 2);
+    expect(b.z).toBeCloseTo(0, 2);
+    expect(33.74 * t.scale / 2).toBeCloseTo(2.5, 2);
+    expect(42.92 * t.scale / 2).toBeCloseTo(3.18, 2);
+    expect(83.83 * t.scale / 2).toBeCloseTo(6.21, 2);
   });
 });
 
