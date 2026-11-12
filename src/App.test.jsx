@@ -195,4 +195,89 @@ describe('App — minimal fire lab (jsdom has no WebGL)', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Close mission brief' }));
     expect(screen.queryByRole('dialog', { name: 'Mission brief' })).toBeNull();
   });
+
+  it('evidence button opens the scatter + the exact PSI-99 row with its DOI (API down, bundled data)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('no server'); }));
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: /Exploration · 34% O₂/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open evidence' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Evidence' });
+    expect(within(dialog).getByText(/Evidence — SIBAL fabric · Exploration 34% O₂ @ 8\.2 psi/)).toBeTruthy();
+    expect(within(dialog).getByText(/GAP 11\.9 O₂ pts/)).toBeTruthy();
+    // The scatter renders (997 plotted) with the gap line to PSI-99.
+    expect(within(dialog).getByText(/997 PSI test rows plotted/)).toBeTruthy();
+    expect(within(dialog).getByText(/11 Flame Design inverse rows/)).toBeTruthy();
+    // The exact row behind the verdict, with its DOI as a link — in
+    // the row card AND in the citations list (both must link out).
+    expect(within(dialog).getByText(/Nearest O₂ test — PSI-99 · Sample 2-5/)).toBeTruthy();
+    const doiLinks = within(dialog).getAllByRole('link', { name: '10.60555/2chp-m469' });
+    expect(doiLinks.length).toBe(2);
+    for (const l of doiLinks) expect(l.getAttribute('href')).toBe('https://doi.org/10.60555/2chp-m469');
+    // Solids record no pressure — said plainly, never assumed.
+    expect(within(dialog).getByText(/No pressure row recorded in PSI for this material/)).toBeTruthy();
+    // Citations + disclaimer + bundled-data source line.
+    expect(within(dialog).getByText(/PSI-99 · Spacecraft Fire Experiment-II/)).toBeTruthy();
+    expect(within(dialog).getByText(/Coverage, not certification/)).toBeTruthy();
+    expect(within(dialog).getByText(/Served from the bundled PSI data/)).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Close evidence' }));
+    expect(screen.queryByRole('dialog', { name: 'Evidence' })).toBeNull();
+  });
+
+  it('evidence button opens the Methanol pressure-gap row at 10.18 psi', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('no server'); }));
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: /Exploration · 34% O₂/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Methanol droplet/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open evidence' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Evidence' });
+    expect(within(dialog).getByText(/GAP 1\.98 psi/)).toBeTruthy();
+    expect(within(dialog).getByText(/Nearest pressure test — PSI-69 · FLEX test 121 \(C12M101\)/)).toBeTruthy();
+    expect(within(dialog).getByText(/10\.18–10\.18 psi/)).toBeTruthy();
+  });
+
+  it('live API: the Evidence modal renders the /api/evidence pack, not the bundled one', async () => {
+    const apiEvidence = {
+      verdict: {
+        material: 'SIBAL fabric', atmosphere: 'ISS', kind: 'GAP_O2',
+        overall: 'GAP (O2)', o2_nearest: 22.1, o2_distance_pts: 11.9,
+        o2_nearest_row: ['PSI-99', 'Sample 2-5'], o2_verdict: 'GAP',
+        pressure_verdict: 'NOT RECORDED',
+      },
+      line: 'MARKER-LIVE-EVIDENCE-PACK',
+      nearest_o2_row: {
+        investigation: 'Spacecraft Fire Experiment-II', accession: 'PSI-99',
+        doi: '10.60555/2chp-m469', table_file: 'PSI-99_Experimental table_SAFFIRE-2.csv',
+        row_ref: 'Sample 2-5', row_kind: 'per-test', material_canonical: 'SIBAL fabric',
+        material_raw: 'Cotton-Fiberglass (SIBAL)', material_class: 'solid',
+        o2_pct_min: 22.1, o2_pct_max: 22.1, o2_approx: true,
+        pressure_psi_min: null, pressure_psi_max: null, flow_cm_s: 20,
+        outcome: null, burn_time_s: 145, notes: 'MARKER-ROW',
+      },
+      nearest_pressure_row: null,
+      citations: [{ accession: 'PSI-99', title: 'Spacecraft Fire Experiment-II', doi: '10.60555/2chp-m469', url: 'https://doi.org/10.60555/2chp-m469' }],
+      reports: [], disclaimer: 'Coverage, not certification.',
+      snapshot: { rows: 2012, investigations: 19, cleaned_at: '2026-11-11' },
+    };
+    const fetchMock = vi.fn(async (url) => {
+      const u = String(url);
+      if (u.includes('/api/evidence')) return { ok: true, json: async () => apiEvidence };
+      if (u.includes('/api/verdict')) return { ok: true, json: async () => apiEvidence.verdict };
+      if (u.includes('/api/materials')) return { ok: true, json: async () => ({ materials: [] }) };
+      if (u.includes('/api/scatter')) return { ok: true, json: async () => ({ points: [] }) };
+      if (u.includes('/api/ranking')) return { ok: true, json: async () => ({ cabin: [], gases: [] }) };
+      return { ok: false, json: async () => ({}) };
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(<App />);
+    expect(await screen.findByText(/live API/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Open evidence' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Evidence' });
+    // The modal shows the API pack's marker line + marker row note —
+    // proof the data came from /api/evidence, not the bundled builder.
+    expect(within(dialog).getByText('MARKER-LIVE-EVIDENCE-PACK')).toBeTruthy();
+    expect(within(dialog).getByText('MARKER-ROW')).toBeTruthy();
+    expect(within(dialog).getByText(/Served live by the verdict-engine API/)).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/api/evidence?material=SIBAL'), expect.anything());
+  });
 });

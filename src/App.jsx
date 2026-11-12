@@ -36,11 +36,45 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ATMOSPHERES, ATMOSPHERE_KEYS, HEADLINE_MATERIALS,
-  buildBrief, fmt, getVerdict, getLiveVerdict, materialClass,
-  gapNumber, KIND_LABEL, KIND_COLOR,
+  buildBrief, buildEvidence, buildEvidenceLive, fmt, getScatterPoints,
+  getVerdict, getLiveVerdict, materialClass,
+  gapNumber, KIND_LABEL, KIND_COLOR, verdictLine,
   tryApi, tryApiVerdict, tryApiLiveVerdict, tryApiBrief,
+  tryApiEvidence, tryApiEvidenceLive,
 } from './lib/data.js';
 import FireLab3D, { CAMERA_PRESETS } from './components/FireLab3D.jsx';
+import Scatter2D from './components/Scatter2D.jsx';
+
+/** One full PSI row, as the evidence pack returns it — accession, test
+ *  ref, recorded O2 / pressure / flow / outcome, DOI as a link. Nothing
+ *  here is summarised: the row is the evidence. */
+function EvidenceRowCard({ row, title }) {
+  if (!row) return null;
+  const o2 = row.o2_pct_min != null || row.o2_pct_max != null
+    ? `${fmt(row.o2_pct_min ?? row.o2_pct_max, 1)}–${fmt(row.o2_pct_max ?? row.o2_pct_min, 1)}% O\u2082${row.o2_approx ? ' (approx.)' : ''}`
+    : 'not recorded';
+  const p = row.pressure_psi_min != null || row.pressure_psi_max != null
+    ? `${fmt(row.pressure_psi_min ?? row.pressure_psi_max, 2)}–${fmt(row.pressure_psi_max ?? row.pressure_psi_min, 2)} psi`
+    : 'not recorded';
+  return (
+    <div className="mt-2 rounded-lg border border-white/10 bg-white/[0.05] p-3 text-[13px] leading-snug">
+      <p className="font-semibold text-slate-100">{title} — {row.accession} · {row.row_ref}</p>
+      <p className="mt-0.5 text-slate-300">{row.investigation} · {row.material_raw || row.material_canonical} ({row.material_class})</p>
+      <p className="mt-1 text-slate-300">O&#8322;: {o2} · Pressure: {p} · Flow: {row.flow_cm_s != null ? `${fmt(row.flow_cm_s, 1)} cm/s` : 'not recorded'}</p>
+      <p className="text-slate-300">Outcome: {row.outcome || 'not recorded in PSI table'}{row.burn_time_s != null ? ` · Burn time: ${fmt(row.burn_time_s, 1)} s` : ''}</p>
+      <p className="text-slate-400">Table: {row.table_file}</p>
+      {row.doi ? (
+        <p className="mt-1">DOI:{' '}
+          <a href={`https://doi.org/${row.doi}`} target="_blank" rel="noreferrer"
+            className="font-semibold text-sky-300 underline hover:text-sky-200">{row.doi}</a>
+        </p>
+      ) : (
+        <p className="mt-1 text-slate-400">DOI: not recorded for this row</p>
+      )}
+      {row.notes ? <p className="mt-1 text-slate-400">{row.notes}</p> : null}
+    </div>
+  );
+}
 
 /** Nearest preset atmosphere by O2 — the glovebox atmosphere strip
  *  follows it when the sliders are on a custom cabin. */
@@ -201,6 +235,30 @@ export default function App() {
     if (apiLive) b = await tryApiBrief(briefAtmosphere, apiBase);
     setBrief(b || buildBrief(briefAtmosphere));
   };
+
+  // ---- Evidence ---------------------------------------------------------
+  // The scatter + the exact PSI rows behind the current verdict, with
+  // DOIs. Data comes from /api/evidence when the API is live, else
+  // buildEvidence() from the bundled data — same numbers either way.
+  // For a custom cabin the live (slider) conditions are used, exactly
+  // like the verdict line above.
+  const [evidenceOpen, setEvidenceOpen] = useState(false);
+  const [evidence, setEvidence] = useState(null);
+  const openEvidence = async () => {
+    setEvidenceOpen(true);
+    setEvidence(null);
+    let e = null;
+    if (apiLive) {
+      e = atmosphere === 'custom'
+        ? await tryApiEvidenceLive(material, o2, pressure, apiBase)
+        : await tryApiEvidence(material, atmosphere, apiBase);
+    }
+    setEvidence(e || (atmosphere === 'custom'
+      ? buildEvidenceLive(material, o2, pressure)
+      : buildEvidence(material, atmosphere)));
+  };
+  // The 997 plotted points never change — compute once.
+  const scatterPoints = useMemo(() => getScatterPoints('all'), []);
 
   // Preset conditions use the pre-computed verdicts (exact citations);
   // custom slider conditions use the live computation from the same data.
@@ -455,6 +513,19 @@ export default function App() {
                 <span className="block text-xs font-normal text-slate-400">Ranked materials, gaps &amp; citations — printable</span>
               </button>
 
+              {/* Evidence — the scatter + the exact PSI rows behind the
+                  current verdict, with DOIs. Data from /api/evidence
+                  when live, else the bundled data (same numbers). */}
+              <button
+                type="button"
+                onClick={openEvidence}
+                aria-label="Open evidence"
+                className="mt-2 block w-full rounded-lg border border-sky-400/40 bg-sky-400/10 px-3 py-2 text-left text-sm font-semibold text-sky-200 hover:border-sky-300"
+              >
+                🔬 Evidence
+                <span className="block text-xs font-normal text-slate-400">Scatter, nearest real tests &amp; citations</span>
+              </button>
+
               <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
                 Flame is illustrative — verdicts come from real NASA PSI test data.
               </p>
@@ -570,6 +641,66 @@ export default function App() {
               </>
             ) : (
               <p className="text-sm text-slate-300">Loading brief…</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Evidence modal — the scatter + the exact PSI rows behind the
+          current verdict, with DOIs. Same glass shell as the brief modal
+          (max-h 85vh, scrollable on portrait phones). */}
+      {evidenceOpen && (
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 p-3" role="dialog" aria-modal="true" aria-label="Evidence">
+          <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-white/20 bg-slate-900/95 p-4 shadow-2xl backdrop-blur-md">
+            {evidence ? (
+              <>
+                <div className="flex items-start justify-between gap-2">
+                  <h2 className="text-base font-bold text-slate-100">
+                    Evidence — {materialLabel} · {ATMOSPHERES[briefAtmosphere].name} {ATMOSPHERES[briefAtmosphere].o2}% O&#8322; @ {ATMOSPHERES[briefAtmosphere].pressure} psi
+                  </h2>
+                  <button type="button" onClick={() => setEvidenceOpen(false)} aria-label="Close evidence"
+                    className="shrink-0 rounded-md border border-white/15 bg-white/[0.08] px-2 py-0.5 text-xs font-bold text-slate-200">✕</button>
+                </div>
+                <p className="mt-1 text-[13px] font-semibold leading-snug" style={{ color: KIND_COLOR[evidence.verdict.kind] }}>
+                  {verdictLineShort(evidence.verdict, materialLabel, conditionShort)}
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-slate-300">{evidence.line}</p>
+
+                <h3 className="mt-3 text-sm font-semibold uppercase tracking-wider text-slate-400">Test cloud — O&#8322; vs pressure</h3>
+                <Scatter2D points={scatterPoints} selectedMaterial={material} atmosphere={scatterAtmosphere} verdict={evidence.verdict} />
+
+                <h3 className="mt-3 text-sm font-semibold uppercase tracking-wider text-slate-400">The rows behind this verdict</h3>
+                <EvidenceRowCard row={evidence.nearest_o2_row} title="Nearest O&#8322; test" />
+                {evidence.nearest_pressure_row ? (
+                  <EvidenceRowCard row={evidence.nearest_pressure_row} title="Nearest pressure test" />
+                ) : (
+                  <p className="mt-2 text-[13px] text-slate-400">No pressure row recorded in PSI for this material — the verdict is O&#8322;-only, and no pressure is assumed.</p>
+                )}
+
+                <h3 className="mt-3 text-sm font-semibold uppercase tracking-wider text-slate-400">Citations — the investigations behind these numbers</h3>
+                <ul className="mt-1 list-disc space-y-1 pl-5 text-[12px] text-slate-300">
+                  {evidence.citations.map((c) => (
+                    <li key={c.accession}>{c.accession} · {c.title}{c.doi ? (<> · DOI <a href={c.url} target="_blank" rel="noreferrer" className="font-semibold text-sky-300 underline hover:text-sky-200">{c.doi}</a></>) : ''}</li>
+                  ))}
+                </ul>
+                <h3 className="mt-3 text-sm font-semibold uppercase tracking-wider text-slate-400">Reports &amp; data</h3>
+                <ul className="mt-1 list-disc space-y-1 pl-5 text-[12px] text-slate-300">
+                  {evidence.reports.map((r) => (
+                    <li key={r.ref}>{r.ref} — {r.note}</li>
+                  ))}
+                </ul>
+                <p className="mt-3 text-[11px] leading-relaxed text-slate-400">{evidence.disclaimer}</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+                  Data: NASA PSI, {evidence.snapshot.rows} rows, {evidence.snapshot.investigations} investigations, cleaned {evidence.snapshot.cleaned_at}.
+                  {apiLive ? ' Served live by the verdict-engine API.' : ' Served from the bundled PSI data (API unreachable).'}
+                </p>
+                <div className="mt-3 flex gap-2">
+                  <button type="button" onClick={() => setEvidenceOpen(false)}
+                    className="rounded-lg border border-white/15 bg-white/[0.05] px-3 py-1.5 text-sm font-semibold text-slate-200">Close</button>
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-slate-300">Loading evidence…</p>
             )}
           </div>
         </div>

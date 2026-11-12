@@ -482,6 +482,74 @@ export async function tryApiLiveVerdict(material, o2, pressure, base) {
 export async function tryApiBrief(atmosphereKey, base) {
   return fetchJson(base, `/api/brief?atmosphere=${atmosphereKey}`, 15000);
 }
+export async function tryApiEvidence(material, atmosphereKey, base) {
+  return fetchJson(base, `/api/evidence?material=${encodeURIComponent(material)}&atmosphere=${atmosphereKey}`, 15000);
+}
+export async function tryApiEvidenceLive(material, o2, pressure, base) {
+  return fetchJson(base, `/api/evidence?material=${encodeURIComponent(material)}&o2=${o2}&pressure=${pressure}`, 15000);
+}
+
+/** Row fields the evidence pack returns, verbatim from the cleaned row —
+ *  the same 18 keys the backend's /api/evidence returns (EVIDENCE_ROW_KEYS
+ *  in app/netlify/functions/api.mjs), so the modal renders identically
+ *  with live or bundled data. Never a summary: the full row record. */
+export const EVIDENCE_ROW_KEYS = [
+  'investigation', 'accession', 'doi', 'table_file', 'row_ref',
+  'row_kind', 'material_canonical', 'material_raw', 'material_class',
+  'o2_pct_min', 'o2_pct_max', 'o2_approx',
+  'pressure_psi_min', 'pressure_psi_max', 'flow_cm_s',
+  'outcome', 'burn_time_s', 'notes',
+];
+
+/** Dataset snapshot — same shape as buildBrief()'s, so the Evidence
+ *  modal and the Mission brief agree on rows / investigations / date. */
+function dataSnapshot() {
+  return {
+    cleaned_at: cleaned.meta?.cleaned_at, rows: cleaned.rows.length,
+    investigations: new Set(cleaned.rows.map((r) => r.accession)).size,
+    tables: Object.keys(cleaned.tables || {}).length, source: 'NASA PSI (Physical Sciences Informatics), public data',
+  };
+}
+
+/** Evidence pack built from the bundled data — the offline fallback for
+ *  /api/evidence. Same shape and same math as the backend (evidence_pack
+ *  in backend/verdicts.py, mirrored in the Netlify Function), so the
+ *  Evidence modal reads identically with or without the API: the verdict,
+ *  the exact PSI rows behind it (full records, never summaries), the DOI
+ *  per investigation, and the citations. Design-range rows are never
+ *  returned (findRow excludes them). */
+export function buildEvidenceFromVerdict(verdict) {
+  const fullRow = (ref) => {
+    if (!ref) return null;
+    const row = findRow(ref[0], ref[1]);
+    if (!row) return null;
+    const out = {};
+    for (const k of EVIDENCE_ROW_KEYS) out[k] = row[k] ?? null;
+    return out;
+  };
+  const inv = verdict.doiByInvestigation || {};
+  const citations = Object.entries(inv).map(([acc, e]) => ({
+    accession: acc, title: e.title, doi: e.doi,
+    url: e.doi ? `https://doi.org/${e.doi}` : null,
+  }));
+  return {
+    verdict,
+    line: verdictLine(verdict),
+    nearest_o2_row: fullRow(verdict.o2_nearest_row),
+    nearest_pressure_row: fullRow(verdict.pressure_nearest_row),
+    investigations: inv,
+    citations,
+    reports: BRIEF_REPORTS,
+    disclaimer: COVERAGE_DISCLAIMER,
+    snapshot: dataSnapshot(),
+  };
+}
+export function buildEvidence(material, atmosphereKey) {
+  return buildEvidenceFromVerdict(getVerdict(material, atmosphereKey));
+}
+export function buildEvidenceLive(material, o2Pct, pressurePsi) {
+  return buildEvidenceFromVerdict(getLiveVerdict(material, o2Pct, pressurePsi));
+}
 
 /** NASA technical reports behind the headline investigations (further
  *  reading — the DOIs in the data are the primary citations). */

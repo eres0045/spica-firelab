@@ -7,6 +7,7 @@ import {
   getScatterPoints, scatterCounts, getVerdict, getLiveVerdict, getRanking,
   getRankingLive, gapLabel, gapEndpoint, gapNumber, verdictLine,
   gasMaterials, detectWebGL, nearestRowFor,
+  buildEvidence, buildEvidenceLive, EVIDENCE_ROW_KEYS,
 } from './data.js';
 
 describe('scatter data', () => {
@@ -220,5 +221,71 @@ describe('webgl detection', () => {
   it('returns a boolean and is false without a real GPU canvas (jsdom)', () => {
     expect(typeof detectWebGL()).toBe('boolean');
     expect(detectWebGL()).toBe(false);
+  });
+});
+
+describe('evidence pack (local builder — mirrors /api/evidence)', () => {
+  it('SIBAL/Exploration: GAP 11.9 with the exact PSI-99 Sample 2-5 row + DOI', () => {
+    const e = buildEvidence('SIBAL fabric', 'Exploration');
+    expect(e.verdict.kind).toBe('GAP_O2');
+    expect(e.verdict.o2_distance_pts).toBe(11.9);
+    // The nearest row is a full cleaned record, never a summary.
+    expect(e.nearest_o2_row.accession).toBe('PSI-99');
+    expect(e.nearest_o2_row.row_ref).toBe('Sample 2-5');
+    expect(e.nearest_o2_row.doi).toBe('10.60555/2chp-m469');
+    expect(e.nearest_o2_row.o2_pct_min).toBe(22.1);
+    expect(e.nearest_o2_row.pressure_psi_min).toBeNull();
+    expect(e.nearest_o2_row.row_kind).toBe('per-test');
+    // Solids record no pressure: the pressure row is honestly null.
+    expect(e.nearest_pressure_row).toBeNull();
+    // Citations carry the same DOI, with a clickable URL.
+    const c99 = e.citations.find((c) => c.accession === 'PSI-99');
+    expect(c99.doi).toBe('10.60555/2chp-m469');
+    expect(c99.url).toBe('https://doi.org/10.60555/2chp-m469');
+    expect(e.snapshot.rows).toBe(2012);
+    expect(e.snapshot.investigations).toBe(19);
+    expect(e.line).toMatch(/11\.9/);
+  });
+
+  it('Methanol/Exploration: pressure GAP 1.98 psi, nearest row at 10.18 psi', () => {
+    const e = buildEvidence('Methanol', 'Exploration');
+    expect(e.verdict.kind).toBe('GAP_PRESSURE');
+    expect(e.verdict.pressure_distance_psi).toBe(1.98);
+    expect(e.nearest_pressure_row.accession).toBe('PSI-69');
+    expect(e.nearest_pressure_row.row_ref).toBe('FLEX test 121 (C12M101)');
+    expect(e.nearest_pressure_row.pressure_psi_min).toBeCloseTo(10.18, 2);
+    expect(e.nearest_pressure_row.doi).toMatch(/^10\.60555\//);
+    // The O2 side is covered: nearest O2 test at the 34% edge.
+    expect(e.nearest_o2_row.accession).toBe('PSI-69');
+    expect(e.nearest_o2_row.o2_pct_min).toBe(34);
+  });
+
+  it('live builder at slider conditions matches the preset pack (34% / 8.2 psi)', () => {
+    const preset = buildEvidence('SIBAL fabric', 'Exploration');
+    const live = buildEvidenceLive('SIBAL fabric', 34, 8.2);
+    expect(live.verdict.kind).toBe(preset.verdict.kind);
+    expect(live.verdict.o2_distance_pts).toBe(preset.verdict.o2_distance_pts);
+    expect(live.nearest_o2_row.row_ref).toBe(preset.nearest_o2_row.row_ref);
+    expect(live.nearest_o2_row.doi).toBe(preset.nearest_o2_row.doi);
+  });
+
+  it('evidence rows carry exactly the backend key set — no invented fields', () => {
+    const e = buildEvidence('SIBAL fabric', 'Exploration');
+    expect(Object.keys(e.nearest_o2_row).sort()).toEqual([...EVIDENCE_ROW_KEYS].sort());
+    // Every row the pack returns is a real cleaned row (design-range
+    // rows are never cited): its accession + ref resolve in the data.
+    for (const r of [e.nearest_o2_row, e.nearest_pressure_row]) {
+      if (!r) continue;
+      expect(r.accession).toMatch(/^PSI-\d+$/);
+      expect(r.doi).toMatch(/^10\.60555\//);
+    }
+  });
+
+  it('unknown material: NO_DATA verdict, null rows, still shaped', () => {
+    const e = buildEvidence('Unobtainium', 'Exploration');
+    expect(e.verdict.kind).toBe('NO_DATA');
+    expect(e.nearest_o2_row).toBeNull();
+    expect(e.nearest_pressure_row).toBeNull();
+    expect(e.citations).toEqual([]);
   });
 });
