@@ -77,18 +77,32 @@ DISCLAIMER = ("Coverage, not certification: TESTED means the condition was "
 
 def _default_data_dir():
     """Find the bundled PSI data. Candidates in order: a data/ folder
-    beside this file, the project data/ dir (../data), the app's copy
-    (../app/src/data). All three carry the same cleaned tables."""
+    beside this file, the app's copy (../src/data from the repo copy),
+    the project data/ dir (../data), the app's copy from the project
+    root (../app/src/data), then a data/ folder in any ancestor
+    directory. All carry the same cleaned tables. This file lives in
+    two places — backend/ at the project root (dev) and app/backend/
+    (committed in the repo) — so the lookup must work from both."""
     here = os.path.dirname(os.path.abspath(__file__))
-    for cand in (os.path.join(here, "data"),
-                 os.path.join(here, "..", "data"),
-                 os.path.join(here, "..", "app", "src", "data")):
+    cands = [os.path.join(here, "data"),
+             os.path.join(here, "..", "src", "data"),
+             os.path.join(here, "..", "data"),
+             os.path.join(here, "..", "app", "src", "data")]
+    parent = os.path.dirname(here)
+    while True:
+        cands.append(os.path.join(parent, "data"))
+        nxt = os.path.dirname(parent)
+        if nxt == parent:
+            break
+        parent = nxt
+    for cand in cands:
         if os.path.isfile(os.path.join(cand, "cleaned.json")) and \
                 os.path.isfile(os.path.join(cand, "coverage-verdicts.json")):
             return cand
     raise FileNotFoundError(
         "cleaned.json / coverage-verdicts.json not found beside verdicts.py "
-        "or in ../data or ../app/src/data (or set SPICA_DATA_DIR)")
+        "or in ../src/data, ../data, ../app/src/data, or any ancestor data/ "
+        "(or set SPICA_DATA_DIR)")
 
 
 class Data:
