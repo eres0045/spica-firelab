@@ -8,6 +8,8 @@ import {
   getRankingLive, gapLabel, gapEndpoint, gapNumber, verdictLine,
   gasMaterials, detectWebGL, nearestRowFor,
   buildEvidence, buildEvidenceLive, EVIDENCE_ROW_KEYS,
+  buildCoverage, buildCoverageLive, buildPlan, buildPlanLive,
+  verdictConfidence, HEADLINE_MATERIALS,
 } from './data.js';
 
 describe('scatter data', () => {
@@ -287,5 +289,139 @@ describe('evidence pack (local builder — mirrors /api/evidence)', () => {
     expect(e.nearest_o2_row).toBeNull();
     expect(e.nearest_pressure_row).toBeNull();
     expect(e.citations).toEqual([]);
+  });
+});
+
+describe('verdictConfidence', () => {
+  it('TESTED is 1.00 — the condition was actually run', () => {
+    expect(verdictConfidence(getVerdict('Methanol', 'ISS')).score).toBe(1);
+  });
+
+  it('PARTIAL is capped at 0.50 — pressure never recorded', () => {
+    expect(verdictConfidence(getVerdict('SIBAL fabric', 'ISS')).score).toBe(0.5);
+  });
+
+  it('SIBAL @ Exploration GAP_O2 is 0.65 (1 - 11.9 / 34)', () => {
+    expect(verdictConfidence(getVerdict('SIBAL fabric', 'Exploration')).score).toBe(0.65);
+  });
+
+  it('Methanol @ Exploration GAP_PRESSURE is 0.76 (1 - 1.98 / 8.2)', () => {
+    expect(verdictConfidence(getVerdict('Methanol', 'Exploration')).score).toBe(0.76);
+  });
+
+  it('Heptane @ Exploration GAP_PRESSURE is 0.75 (1 - 2.01 / 8.2)', () => {
+    expect(verdictConfidence(getVerdict('Heptane', 'Exploration')).score).toBe(0.75);
+  });
+
+  it('NO_DATA has no confidence', () => {
+    expect(verdictConfidence(getVerdict('Unobtainium', 'ISS')).score).toBeNull();
+  });
+
+  it('live (custom-cabin) verdicts use the slider targets', () => {
+    expect(verdictConfidence(getLiveVerdict('SIBAL fabric', 34, 8.2)).score).toBe(0.65);
+    expect(verdictConfidence(getLiveVerdict('Methanol', 34, 8.2)).score).toBe(0.76);
+  });
+});
+
+describe('buildCoverage', () => {
+  it('SIBAL fabric: O2 16.4-22.1 over 17 levels (30 rows); pressure never recorded; 44 rows total', () => {
+    const c = buildCoverage('SIBAL fabric');
+    expect(c.o2.min).toBe(16.4);
+    expect(c.o2.max).toBe(22.1);
+    expect(c.o2.n_levels).toBe(17);
+    expect(c.o2.n_rows).toBe(30);
+    expect(c.pressure.recorded).toBe(false);
+    expect(c.pressure.n_rows).toBe(0);
+    expect(c.rows_total).toBe(44);
+    expect(c.atmospheres.Exploration.gap).toBe(11.9);
+    expect(c.atmospheres.Exploration.confidence).toBe(0.65);
+    expect(c.atmospheres.ISS.confidence).toBe(0.5);
+    expect(c.atmospheres.Exploration.o2_nearest_doi).toBe('10.60555/2chp-m469');
+  });
+
+  it('Methanol: pressure 10.18-44.86 psi (156 rows); ISS TESTED confidence 1; Exploration gap 1.98', () => {
+    const c = buildCoverage('Methanol');
+    expect(c.pressure.recorded).toBe(true);
+    expect(c.pressure.min).toBe(10.18);
+    expect(c.pressure.max).toBe(44.86);
+    expect(c.pressure.n_rows).toBe(156);
+    expect(c.o2.n_rows).toBe(157);
+    expect(c.rows_total).toBe(157);
+    expect(c.atmospheres.ISS.confidence).toBe(1);
+    expect(c.atmospheres.Exploration.gap).toBe(1.98);
+    expect(c.atmospheres.Exploration.confidence).toBe(0.76);
+  });
+
+  it('single-atmosphere mode returns only that atmosphere', () => {
+    const c = buildCoverage('Methanol', 'Orion');
+    expect(Object.keys(c.atmospheres)).toEqual(['Orion']);
+    expect(c.atmospheres.Orion.kind).toBe('TESTED');
+  });
+
+  it('unknown material is NO_DATA everywhere, with no confidence', () => {
+    const c = buildCoverage('Unobtainium');
+    expect(c.o2).toBeNull();
+    expect(c.rows_total).toBe(0);
+    expect(c.atmospheres.ISS.kind).toBe('NO_DATA');
+    expect(c.atmospheres.ISS.confidence).toBeNull();
+  });
+
+  it('buildCoverageLive honours the custom cabin', () => {
+    const c = buildCoverageLive('SIBAL fabric', 34, 8.2);
+    expect(Object.keys(c.atmospheres)).toEqual(['custom']);
+    expect(c.atmospheres.custom.kind).toBe('GAP_O2');
+    expect(c.atmospheres.custom.confidence).toBe(0.65);
+    expect(c.atmospheres.custom.o2_target).toBe(34);
+  });
+
+  it('carries the snapshot, disclaimer and confidence method', () => {
+    const c = buildCoverage('Methanol');
+    expect(c.snapshot.rows).toBe(2012);
+    expect(c.disclaimer).toMatch(/TESTED means the condition was actually run/);
+    expect(c.confidence_method).toMatch(/TESTED = 1.00/);
+  });
+});
+
+describe('buildPlan', () => {
+  it('SIBAL + Methanol @ Exploration: 0 tested, 2 gaps, worst SIBAL 11.9', () => {
+    const p = buildPlan(['SIBAL fabric', 'Methanol'], 'Exploration');
+    expect(p.summary).toEqual({ total: 2, tested: 0, gap: 2, partial: 0, no_data: 0 });
+    expect(p.plan_line).toMatch(/0 of 2 materials TESTED at Exploration 34% O\u2082 @ 8\.2 psi/);
+    expect(p.plan_line).toMatch(/2 gaps \u2014 worst: SIBAL fabric, 11\.9 O\u2082 pts beyond the tested range/);
+    expect(p.materials[0].nearest_o2_doi).toBe('10.60555/2chp-m469');
+  });
+
+  it('Methanol + Heptane + SIBAL @ ISS: 2 tested, 1 partial', () => {
+    const p = buildPlan(['Methanol', 'Heptane', 'SIBAL fabric'], 'ISS');
+    expect(p.summary).toEqual({ total: 3, tested: 2, gap: 0, partial: 1, no_data: 0 });
+    expect(p.plan_line).toMatch(/2 of 3 materials TESTED/);
+    expect(p.plan_line).toMatch(/1 partial \u2014 SIBAL fabric/);
+  });
+
+  it('all five headline materials @ Exploration: 0 tested, 5 gaps', () => {
+    const p = buildPlan(HEADLINE_MATERIALS.map((m) => m.key), 'Exploration');
+    expect(p.summary).toEqual({ total: 5, tested: 0, gap: 5, partial: 0, no_data: 0 });
+  });
+
+  it('unknown material is a NO_DATA entry, never assumed covered', () => {
+    const p = buildPlan(['Unobtainium', 'Methanol'], 'ISS');
+    expect(p.summary.no_data).toBe(1);
+    expect(p.summary.tested).toBe(1);
+    expect(p.plan_line).toMatch(/1 without PSI data \u2014 Unobtainium/);
+  });
+
+  it('buildPlanLive uses the custom cabin', () => {
+    const p = buildPlanLive(['Methanol'], 26.5, 10.2);
+    expect(p.atmosphere).toBe('custom');
+    expect(p.materials[0].kind).toBe('TESTED');
+    expect(p.plan_line).toMatch(/custom cabin/);
+  });
+
+  it('citations dedupe across materials and carry DOI URLs', () => {
+    const p = buildPlan(['SIBAL fabric', 'Methanol'], 'ISS');
+    const accs = p.citations.map((c) => c.accession);
+    expect(new Set(accs).size).toBe(accs.length);
+    expect(p.citations.find((c) => c.accession === 'PSI-99').url)
+      .toBe('https://doi.org/10.60555/2chp-m469');
   });
 });

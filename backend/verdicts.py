@@ -603,6 +603,228 @@ def mission_brief(data, atmosphere_key):
     }
 
 
+# ---------------------------------------------------------------- coverage / plan
+
+CONFIDENCE_METHOD = (
+    "confidence = 1 \u2212 nearest-test distance \u00f7 target value "
+    "(O2 pts \u00f7 atmosphere O2%, or psi \u00f7 atmosphere psi); "
+    "TESTED = 1.00; PARTIAL capped at 0.50 because pressure was never "
+    "recorded; NO DATA has no confidence. A heuristic, not a probability "
+    "\u2014 the distance itself is the evidence.")
+
+
+def verdict_confidence(v):
+    """Verdict confidence — how close the nearest real test is to the
+    condition, as a 0..1 score. NOT a probability and NOT an
+    interpolation: the nearest-test distance itself is the evidence.
+    TESTED 1.00 (condition actually run); PARTIAL capped at 0.50 (O2
+    covered, pressure never recorded); GAP (O2) 1 - o2_distance_pts /
+    target O2%; GAP (pressure) 1 - pressure_distance_psi / target psi;
+    NO DATA null. Rounded to 2 decimals (same r2 as the frontend)."""
+    if not v:
+        return {"score": None, "note": "No verdict."}
+    kind = v.get("kind")
+    if kind == "TESTED":
+        return {"score": 1, "note": "The condition was actually run in microgravity."}
+    if kind == "PARTIAL":
+        return {"score": 0.5, "note": "O2 covered, but pressure was never recorded "
+                                      "\u2014 half the axes verified."}
+    if kind == "GAP_O2":
+        target = v.get("o2Target") if v.get("custom") else \
+            ATMOSPHERES.get(v.get("atmosphere") or {}).get("o2")
+        dist = v.get("o2_distance_pts")
+        if dist is None or target is None or target <= 0:
+            return {"score": None, "note": "Nearest-test distance not recorded."}
+        return {"score": r2(max(0, 1 - dist / target)),
+                "note": f"Nearest test is {fmt(dist, 1)} O2 pts from the "
+                        f"{fmt(target, 1)}% target."}
+    if kind == "GAP_PRESSURE":
+        target = v.get("pressureTarget") if v.get("custom") else \
+            ATMOSPHERES.get(v.get("atmosphere") or {}).get("pressure")
+        dist = v.get("pressure_distance_psi")
+        if dist is None or target is None or target <= 0:
+            return {"score": None, "note": "Nearest-test distance not recorded."}
+        return {"score": r2(max(0, 1 - dist / target)),
+                "note": f"Nearest tested pressure is {fmt(dist, 2)} psi from the "
+                        f"{fmt(target, 1)} psi target."}
+    return {"score": None, "note": "No O2 data for this material in PSI "
+                                   "\u2014 it cannot be judged."}
+
+
+def _coverage_entry(data, material, verdict):
+    gap = gap_number(verdict)
+    conf = verdict_confidence(verdict)
+    o2_row = verdict.get("o2_nearest_row")
+    p_row = verdict.get("pressure_nearest_row")
+    return {
+        "kind": verdict.get("kind"), "overall": verdict.get("overall"),
+        "gap": gap["value"] if gap["value"] is not None else 0,
+        "gapUnit": gap["unit"] or "O\u2082 pts",
+        "gapAxis": gap["axis"] or "o2",
+        "o2_distance_pts": verdict.get("o2_distance_pts"),
+        "pressure_distance_psi": verdict.get("pressure_distance_psi"),
+        "o2_nearest": verdict.get("o2_nearest"),
+        "o2_nearest_row": o2_row,
+        "o2_nearest_doi": doi_for(verdict, o2_row[0]) if o2_row else None,
+        "pressure_nearest_psi": verdict.get("pressure_nearest_psi"),
+        "pressure_nearest_row": p_row,
+        "pressure_nearest_doi": doi_for(verdict, p_row[0]) if p_row else None,
+        "confidence": conf["score"], "confidence_note": conf["note"],
+        "line": verdict_line(verdict),
+    }
+
+
+def get_coverage(data, material, atmosphere_key=None, o2_pct=None, pressure_psi=None):
+    """Coverage pack for one material — tested ranges, test counts, and
+    per-atmosphere confidence. Same shape and same math as the frontend
+    (buildCoverage in app/src/lib/data.js). With an atmosphere key it
+    returns that atmosphere only; without one it returns all three;
+    with o2/pressure it returns the custom-cabin entry."""
+    v = data.verdicts.get(material)
+    rows_total = sum(1 for r in data.rows if r["material_canonical"] == material)
+    inv = (v or {}).get("o2_by_investigation") or {}
+    investigations = [
+        {"accession": acc, "title": e.get("title"), "doi": e.get("doi"),
+         "n": e.get("n"), "min": e.get("min"), "max": e.get("max")}
+        for acc, e in inv.items()
+    ]
+    if v and v.get("o2"):
+        o2 = {"min": v["o2"]["min"], "max": v["o2"]["max"],
+              "levels": v["o2"]["levels"], "n_levels": len(v["o2"]["levels"]),
+              "n_rows": v.get("n_o2_rows")}
+    else:
+        o2 = None
+    if v and v.get("pressure") and v["pressure"].get("min") is not None:
+        pressure = {"recorded": True, "min": r2(v["pressure"]["min"]),
+                    "max": r2(v["pressure"]["max"]), "n_rows": v.get("n_p_rows")}
+    else:
+        pressure = {"recorded": False, "min": None, "max": None,
+                    "n_rows": v.get("n_p_rows", 0) if v else 0}
+    atmospheres = {}
+    if atmosphere_key:
+        atmospheres[atmosphere_key] = _coverage_entry(
+            data, material, get_verdict(data, material, atmosphere_key))
+    elif o2_pct is not None and pressure_psi is not None:
+        atmospheres["custom"] = dict(_coverage_entry(
+            data, material, get_live_verdict(data, material, o2_pct, pressure_psi)),
+            o2_target=o2_pct, pressure_target=pressure_psi)
+    else:
+        for key in ATMOSPHERE_KEYS:
+            atmospheres[key] = _coverage_entry(
+                data, material, get_verdict(data, material, key))
+    return {
+        "material": material, "label": label_for(material),
+        "className": material_class(data, material),
+        "o2": o2, "pressure": pressure, "rows_total": rows_total,
+        "investigations": investigations, "atmospheres": atmospheres,
+        "snapshot": data.snapshot(), "disclaimer": DISCLAIMER,
+        "confidence_method": CONFIDENCE_METHOD,
+    }
+
+
+def _plan_entry(data, material, verdict):
+    gap = gap_number(verdict)
+    conf = verdict_confidence(verdict)
+    o2_row = verdict.get("o2_nearest_row")
+    p_row = verdict.get("pressure_nearest_row")
+    return {
+        "material": material, "label": label_for(material),
+        "className": material_class(data, material),
+        "kind": verdict.get("kind"), "overall": verdict.get("overall"),
+        "gap": gap["value"] if gap["value"] is not None else 0,
+        "gapUnit": gap["unit"] or "O\u2082 pts",
+        "gapAxis": gap["axis"] or "o2",
+        "line": verdict_line(verdict),
+        "confidence": conf["score"], "confidence_note": conf["note"],
+        "nearest_o2_test": f"{o2_row[0]} \u00b7 {o2_row[1]}" if o2_row else None,
+        "nearest_o2_doi": doi_for(verdict, o2_row[0]) if o2_row else None,
+        "nearest_pressure_test": f"{p_row[0]} \u00b7 {p_row[1]}" if p_row else None,
+        "nearest_pressure_doi": doi_for(verdict, p_row[0]) if p_row else None,
+    }
+
+
+def _plan_line(entries, conditions_label):
+    """The plan's one-line verdict — counts plus the worst gap, built
+    only from the entries. Worst = lowest confidence among the gaps."""
+    total = len(entries)
+    tested = sum(1 for e in entries if e["kind"] == "TESTED")
+    gaps = [e for e in entries if e["kind"] in ("GAP_O2", "GAP_PRESSURE")]
+    partials = [e for e in entries if e["kind"] == "PARTIAL"]
+    no_data = [e for e in entries if e["kind"] == "NO_DATA"]
+    worst = None
+    if gaps:
+        worst = sorted(gaps, key=lambda e: e["confidence"]
+                       if e["confidence"] is not None else 1)[0]
+    line = (f"{tested} of {total} material{'s' if total != 1 else ''} "
+            f"TESTED at {conditions_label}")
+    parts = []
+    if gaps:
+        w = (f" \u2014 worst: {worst['label']}, "
+             f"{fmt(worst['gap'], 2 if worst['gapUnit'] == 'psi' else 1)} "
+             f"{worst['gapUnit']} beyond the tested range") if worst else ""
+        parts.append(f"{len(gaps)} gap{'s' if len(gaps) != 1 else ''}{w}")
+    if partials:
+        parts.append(f"{len(partials)} partial \u2014 "
+                     f"{', '.join(p['label'] for p in partials)}, O2 covered, "
+                     f"pressure never recorded")
+    if no_data:
+        parts.append(f"{len(no_data)} without PSI data \u2014 "
+                     f"{', '.join(p['label'] for p in no_data)}")
+    if parts:
+        line += "; " + "; ".join(parts)
+    else:
+        line += " \u2014 every condition was actually run."
+    return line
+
+
+def _assemble_plan(data, entries, materials, atmosphere, conditions, conditions_label):
+    summary = {
+        "total": len(entries),
+        "tested": sum(1 for e in entries if e["kind"] == "TESTED"),
+        "gap": sum(1 for e in entries if e["kind"] in ("GAP_O2", "GAP_PRESSURE")),
+        "partial": sum(1 for e in entries if e["kind"] == "PARTIAL"),
+        "no_data": sum(1 for e in entries if e["kind"] == "NO_DATA"),
+    }
+    all_dois = {}
+    for m in materials:
+        v = data.verdicts.get(m)
+        for acc, inv in ((v or {}).get("o2_by_investigation") or {}).items():
+            all_dois[acc] = {"accession": acc, "title": inv.get("title"),
+                             "doi": inv.get("doi"),
+                             "url": f"https://doi.org/{inv['doi']}" if inv.get("doi") else None}
+    return {
+        "atmosphere": atmosphere, "conditions": conditions,
+        "materials": entries, "summary": summary,
+        "plan_line": _plan_line(entries, conditions_label),
+        "citations": list(all_dois.values()),
+        "reports": CITATIONS, "disclaimer": DISCLAIMER,
+        "snapshot": data.snapshot(),
+    }
+
+
+def mission_plan(data, materials, atmosphere_key=None, o2_pct=None, pressure_psi=None):
+    """Mission plan for a chosen material list at one atmosphere — the
+    per-material verdicts, the counts, and the one-line verdict. Same
+    shape and same math as the frontend (buildPlan in
+    app/src/lib/data.js). Unknown materials are NO_DATA entries, never
+    assumed covered."""
+    if atmosphere_key:
+        atm = ATMOSPHERES[atmosphere_key]
+        entries = [_plan_entry(data, m, get_verdict(data, m, atmosphere_key))
+                   for m in materials]
+        return _assemble_plan(
+            data, entries, materials, atmosphere_key,
+            {"o2_pct": atm["o2"], "o2_max_pct": atm["o2Max"],
+             "pressure_psi": atm["pressure"], "blurb": atm["blurb"]},
+            f"{atm['name']} {fmt(atm['o2'], 1)}% O\u2082 @ {fmt(atm['pressure'], 1)} psi")
+    entries = [_plan_entry(data, m, get_live_verdict(data, m, o2_pct, pressure_psi))
+               for m in materials]
+    return _assemble_plan(
+        data, entries, materials, "custom",
+        {"o2_pct": o2_pct, "pressure_psi": pressure_psi, "custom": True},
+        f"{fmt(o2_pct, 1)}% O\u2082 @ {fmt(pressure_psi, 1)} psi (custom cabin)")
+
+
 # ---------------------------------------------------------------- freshness
 
 PSI_API_ROOT = "https://psi.nasa.gov/geode-py/ws/"

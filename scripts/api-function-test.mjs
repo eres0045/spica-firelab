@@ -89,6 +89,54 @@ assert(t.body.cabin[0].material === 'SIBAL fabric' && t.body.cabin[0].gap === 11
   `brief cabin[0] SIBAL 11.9, 9 citations, 3 reports (got ${t.body.citations.length}/${t.body.reports.length})`);
 assert(t.body.disclaimer.includes('Coverage, not certification'), 'brief disclaimer');
 
+t = await call('/api/coverage', { material: 'SIBAL fabric' });
+assert(t.body.rows_total === 44 && t.body.o2.n_levels === 17 && t.body.o2.n_rows === 30 &&
+  t.body.pressure.recorded === false &&
+  t.body.atmospheres.Exploration.gap === 11.9 && t.body.atmospheres.Exploration.confidence === 0.65 &&
+  t.body.atmospheres.ISS.confidence === 0.5 &&
+  t.body.atmospheres.Exploration.o2_nearest_doi === '10.60555/2chp-m469',
+  `coverage SIBAL 44 rows, Exploration gap 11.9 conf 0.65, ISS conf 0.5 (got ${JSON.stringify({ r: t.body.rows_total, e: t.body.atmospheres?.Exploration, i: t.body.atmospheres?.ISS })})`);
+t = await call('/api/coverage', { material: 'Methanol' });
+assert(t.body.pressure.recorded === true && t.body.pressure.min === 10.18 && t.body.pressure.max === 44.86 &&
+  t.body.pressure.n_rows === 156 && t.body.atmospheres.ISS.confidence === 1 &&
+  t.body.atmospheres.Exploration.confidence === 0.76,
+  `coverage Methanol pressure 10.18-44.86, ISS conf 1, Exploration conf 0.76 (got ${JSON.stringify({ p: t.body.pressure, e: t.body.atmospheres?.Exploration })})`);
+t = await call('/api/coverage', { material: 'Methanol', atmosphere: 'Orion' });
+assert(Object.keys(t.body.atmospheres).join() === 'Orion' && t.body.atmospheres.Orion.kind === 'TESTED',
+  'coverage single-atmosphere Orion only');
+t = await call('/api/coverage', { material: 'SIBAL fabric', o2: '34', pressure: '8.2' });
+assert(Object.keys(t.body.atmospheres).join() === 'custom' && t.body.atmospheres.custom.confidence === 0.65,
+  'coverage live 34/8.2 custom conf 0.65');
+t = await call('/api/coverage', { material: 'Nope' });
+assert(t.status === 404, `coverage unknown material 404 (got ${t.status})`);
+t = await call('/api/coverage');
+assert(t.status === 400, `coverage missing material 400 (got ${t.status})`);
+t = await call('/api/coverage', { material: 'Methanol', atmosphere: 'Mars' });
+assert(t.status === 400, `coverage bad atmosphere 400 (got ${t.status})`);
+t = await call('/api/coverage', { material: 'Methanol', o2: '34' });
+assert(t.status === 400, `coverage o2 without pressure 400 (got ${t.status})`);
+
+t = await call('/api/plan', { materials: 'SIBAL fabric,Methanol', atmosphere: 'Exploration' });
+assert(t.body.summary.total === 2 && t.body.summary.tested === 0 && t.body.summary.gap === 2 &&
+  t.body.plan_line.includes('0 of 2 materials TESTED at Exploration 34% O\u2082 @ 8.2 psi') &&
+  t.body.plan_line.includes('worst: SIBAL fabric, 11.9 O\u2082 pts beyond the tested range') &&
+  t.body.materials[0].nearest_o2_doi === '10.60555/2chp-m469',
+  `plan SIBAL+Methanol@Exploration 0/2 tested, worst SIBAL 11.9 (got ${t.body.plan_line})`);
+t = await call('/api/plan', { materials: 'Methanol,Heptane,SIBAL fabric', atmosphere: 'ISS' });
+assert(t.body.summary.tested === 2 && t.body.summary.partial === 1,
+  `plan ISS 2 tested 1 partial (got ${JSON.stringify(t.body.summary)})`);
+t = await call('/api/plan', { materials: 'Methanol', o2: '26.5', pressure: '10.2' });
+assert(t.body.atmosphere === 'custom' && t.body.materials[0].kind === 'TESTED' &&
+  t.body.plan_line.includes('custom cabin'), 'plan live 26.5/10.2 custom TESTED');
+t = await call('/api/plan');
+assert(t.status === 400, `plan missing materials 400 (got ${t.status})`);
+t = await call('/api/plan', { materials: 'Nope', atmosphere: 'ISS' });
+assert(t.status === 404, `plan unknown material 404 (got ${t.status})`);
+t = await call('/api/plan', { materials: 'Methanol', atmosphere: 'Mars' });
+assert(t.status === 400, `plan bad atmosphere 400 (got ${t.status})`);
+t = await call('/api/plan', { materials: 'Methanol' });
+assert(t.status === 400, `plan no atmosphere and no o2/pressure 400 (got ${t.status})`);
+
 t = await call('/api/freshness');
 assert(typeof t.body.psi.live === 'boolean' && t.body.snapshot.rows === 2012,
   `freshness live boolean + snapshot 2012 (live=${t.body.psi.live})`);

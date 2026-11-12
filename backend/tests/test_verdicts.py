@@ -255,3 +255,122 @@ def test_api_freshness_shape(client, monkeypatch):
     body = client.get("/api/freshness").get_json()
     assert body["psi"]["live"] is False
     assert body["snapshot"]["rows"] == 2012
+
+
+# ---------------------------------------------------------------- confidence
+
+def test_confidence_pinned_values(data):
+    assert verdicts.verdict_confidence(
+        verdicts.get_verdict(data, "Methanol", "ISS"))["score"] == 1
+    assert verdicts.verdict_confidence(
+        verdicts.get_verdict(data, "SIBAL fabric", "ISS"))["score"] == 0.5
+    assert verdicts.verdict_confidence(
+        verdicts.get_verdict(data, "SIBAL fabric", "Exploration"))["score"] == 0.65
+    assert verdicts.verdict_confidence(
+        verdicts.get_verdict(data, "Methanol", "Exploration"))["score"] == 0.76
+    assert verdicts.verdict_confidence(
+        verdicts.get_verdict(data, "Heptane", "Exploration"))["score"] == 0.75
+    assert verdicts.verdict_confidence(
+        verdicts.get_verdict(data, "Unobtainium", "ISS"))["score"] is None
+
+
+# ---------------------------------------------------------------- coverage
+
+def test_coverage_sibal(data):
+    c = verdicts.get_coverage(data, "SIBAL fabric")
+    assert c["o2"]["min"] == 16.4 and c["o2"]["max"] == 22.1
+    assert c["o2"]["n_levels"] == 17 and c["o2"]["n_rows"] == 30
+    assert c["pressure"]["recorded"] is False
+    assert c["rows_total"] == 44
+    assert c["atmospheres"]["Exploration"]["gap"] == 11.9
+    assert c["atmospheres"]["Exploration"]["confidence"] == 0.65
+    assert c["atmospheres"]["ISS"]["confidence"] == 0.5
+    assert c["atmospheres"]["Exploration"]["o2_nearest_doi"] == "10.60555/2chp-m469"
+
+
+def test_coverage_methanol(data):
+    c = verdicts.get_coverage(data, "Methanol")
+    assert c["pressure"]["recorded"] is True
+    assert c["pressure"]["min"] == 10.18 and c["pressure"]["max"] == 44.86
+    assert c["pressure"]["n_rows"] == 156
+    assert c["rows_total"] == 157
+    assert c["atmospheres"]["ISS"]["confidence"] == 1
+    assert c["atmospheres"]["Exploration"]["gap"] == 1.98
+
+
+def test_coverage_single_atmosphere_and_live(data):
+    c = verdicts.get_coverage(data, "Methanol", atmosphere_key="Orion")
+    assert list(c["atmospheres"]) == ["Orion"]
+    assert c["atmospheres"]["Orion"]["kind"] == "TESTED"
+    live = verdicts.get_coverage(data, "SIBAL fabric", o2_pct=34, pressure_psi=8.2)
+    assert list(live["atmospheres"]) == ["custom"]
+    assert live["atmospheres"]["custom"]["confidence"] == 0.65
+
+
+def test_coverage_unknown_material(data):
+    c = verdicts.get_coverage(data, "Unobtainium")
+    assert c["o2"] is None and c["rows_total"] == 0
+    assert c["atmospheres"]["ISS"]["kind"] == "NO_DATA"
+    assert c["atmospheres"]["ISS"]["confidence"] is None
+
+
+# ---------------------------------------------------------------- plan
+
+def test_plan_sibal_methanol_exploration(data):
+    p = verdicts.mission_plan(data, ["SIBAL fabric", "Methanol"],
+                              atmosphere_key="Exploration")
+    assert p["summary"] == {"total": 2, "tested": 0, "gap": 2,
+                            "partial": 0, "no_data": 0}
+    assert "0 of 2 materials TESTED at Exploration 34% O\u2082 @ 8.2 psi" in p["plan_line"]
+    assert "worst: SIBAL fabric, 11.9 O\u2082 pts beyond the tested range" in p["plan_line"]
+    assert p["materials"][0]["nearest_o2_doi"] == "10.60555/2chp-m469"
+
+
+def test_plan_iss_two_tested_one_partial(data):
+    p = verdicts.mission_plan(data, ["Methanol", "Heptane", "SIBAL fabric"],
+                              atmosphere_key="ISS")
+    assert p["summary"] == {"total": 3, "tested": 2, "gap": 0,
+                            "partial": 1, "no_data": 0}
+    assert "1 partial \u2014 SIBAL fabric" in p["plan_line"]
+
+
+def test_plan_unknown_material_is_no_data(data):
+    p = verdicts.mission_plan(data, ["Unobtainium", "Methanol"], atmosphere_key="ISS")
+    assert p["summary"]["no_data"] == 1 and p["summary"]["tested"] == 1
+    assert "1 without PSI data \u2014 Unobtainium" in p["plan_line"]
+
+
+def test_plan_live_custom_cabin(data):
+    p = verdicts.mission_plan(data, ["Methanol"], o2_pct=26.5, pressure_psi=10.2)
+    assert p["atmosphere"] == "custom"
+    assert p["materials"][0]["kind"] == "TESTED"
+    assert "custom cabin" in p["plan_line"]
+
+
+# ---------------------------------------------------------------- API routes
+
+def test_api_coverage(client):
+    body = client.get("/api/coverage?material=SIBAL%20fabric").get_json()
+    assert body["rows_total"] == 44
+    assert body["atmospheres"]["Exploration"]["confidence"] == 0.65
+    assert client.get("/api/coverage?material=SIBAL%20fabric&atmosphere=ISS").get_json()[
+        "atmospheres"]["ISS"]["kind"] == "PARTIAL"
+    assert client.get("/api/coverage?material=SIBAL%20fabric&o2=34&pressure=8.2").get_json()[
+        "atmospheres"]["custom"]["confidence"] == 0.65
+    assert client.get("/api/coverage").status_code == 400
+    assert client.get("/api/coverage?material=Nope").status_code == 404
+    assert client.get("/api/coverage?material=Methanol&atmosphere=Mars").status_code == 400
+    assert client.get("/api/coverage?material=Methanol&o2=34").status_code == 400
+
+
+def test_api_plan(client):
+    body = client.get(
+        "/api/plan?materials=SIBAL%20fabric,Methanol&atmosphere=Exploration").get_json()
+    assert body["summary"] == {"total": 2, "tested": 0, "gap": 2,
+                               "partial": 0, "no_data": 0}
+    assert "worst: SIBAL fabric" in body["plan_line"]
+    assert client.get("/api/plan").status_code == 400
+    assert client.get("/api/plan?materials=").status_code == 400
+    assert client.get("/api/plan?materials=Nope&atmosphere=ISS").status_code == 404
+    assert client.get("/api/plan?materials=Methanol&atmosphere=Mars").status_code == 400
+    assert client.get("/api/plan?materials=Methanol&o2=34").status_code == 400

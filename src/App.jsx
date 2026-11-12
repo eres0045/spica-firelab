@@ -37,10 +37,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ATMOSPHERES, ATMOSPHERE_KEYS, HEADLINE_MATERIALS,
   buildBrief, buildEvidence, buildEvidenceLive, fmt, getScatterPoints,
+  buildCoverage, buildCoverageLive, buildPlan, buildPlanLive,
   getVerdict, getLiveVerdict, materialClass,
   gapNumber, KIND_LABEL, KIND_COLOR, verdictLine,
   tryApi, tryApiVerdict, tryApiLiveVerdict, tryApiBrief,
   tryApiEvidence, tryApiEvidenceLive,
+  tryApiCoverage, tryApiCoverageLive, tryApiPlan, tryApiPlanLive,
 } from './lib/data.js';
 import FireLab3D, { CAMERA_PRESETS } from './components/FireLab3D.jsx';
 import Scatter2D from './components/Scatter2D.jsx';
@@ -244,18 +246,60 @@ export default function App() {
   // like the verdict line above.
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   const [evidence, setEvidence] = useState(null);
+  // Coverage pack for the same material — the tested ranges, test
+  // counts and the confidence score for this verdict. Same source as
+  // the evidence (API when live, else the bundled builders).
+  const [coverage, setCoverage] = useState(null);
   const openEvidence = async () => {
     setEvidenceOpen(true);
     setEvidence(null);
+    setCoverage(null);
     let e = null;
+    let c = null;
     if (apiLive) {
-      e = atmosphere === 'custom'
-        ? await tryApiEvidenceLive(material, o2, pressure, apiBase)
-        : await tryApiEvidence(material, atmosphere, apiBase);
+      if (atmosphere === 'custom') {
+        e = await tryApiEvidenceLive(material, o2, pressure, apiBase);
+        c = await tryApiCoverageLive(material, o2, pressure, apiBase);
+      } else {
+        e = await tryApiEvidence(material, atmosphere, apiBase);
+        c = await tryApiCoverage(material, atmosphere, apiBase);
+      }
     }
     setEvidence(e || (atmosphere === 'custom'
       ? buildEvidenceLive(material, o2, pressure)
       : buildEvidence(material, atmosphere)));
+    setCoverage(c || (atmosphere === 'custom'
+      ? buildCoverageLive(material, o2, pressure)
+      : buildCoverage(material, atmosphere)));
+  };
+
+  // ---- Mission planner --------------------------------------------------
+  // Pick materials, get the verdict for each at the current atmosphere
+  // plus the one-line plan. Same source as the brief (API when live,
+  // else the bundled builders). The planner always uses the atmosphere
+  // the panel is currently on — preset or the slider (custom) cabin.
+  const [planOpen, setPlanOpen] = useState(false);
+  const [plan, setPlan] = useState(null);
+  const [planMaterials, setPlanMaterials] = useState(
+    () => HEADLINE_MATERIALS.map((m) => m.key));
+  const openPlan = async () => {
+    setPlanOpen(true);
+    setPlan(null);
+    const chosen = planMaterials.length ? planMaterials : HEADLINE_MATERIALS.map((m) => m.key);
+    let p = null;
+    if (apiLive) {
+      p = atmosphere === 'custom'
+        ? await tryApiPlanLive(chosen, o2, pressure, apiBase)
+        : await tryApiPlan(chosen, atmosphere, apiBase);
+    }
+    setPlan(p || (atmosphere === 'custom'
+      ? buildPlanLive(chosen, o2, pressure)
+      : buildPlan(chosen, atmosphere)));
+  };
+  const togglePlanMaterial = (key) => {
+    setPlanMaterials((prev) => (prev.includes(key)
+      ? prev.filter((k) => k !== key)
+      : [...prev, key]));
   };
   // The 997 plotted points never change — compute once.
   const scatterPoints = useMemo(() => getScatterPoints('all'), []);
@@ -321,7 +365,7 @@ export default function App() {
           🔥 Show controls
         </button>
       ) : (
-      <div className="glass-text absolute inset-x-0 bottom-0 z-20 max-h-[56vh] overflow-y-auto rounded-t-2xl border-t border-white/20 bg-white/[0.07] shadow-2xl backdrop-blur-md lg:inset-x-auto lg:bottom-4 lg:left-4 lg:top-4 lg:max-h-[calc(100vh-32px)] lg:overflow-y-auto lg:w-[264px] lg:rounded-2xl lg:border">
+      <div className="glass-text absolute inset-x-0 bottom-0 z-20 max-h-[40vh] overflow-y-auto rounded-t-2xl border-t border-white/20 bg-white/[0.07] shadow-2xl backdrop-blur-md lg:inset-x-auto lg:bottom-4 lg:left-4 lg:top-4 lg:max-h-[calc(100vh-32px)] lg:overflow-y-auto lg:w-[264px] lg:rounded-2xl lg:border">
         <div className="p-3">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-200">🔥 Fire control</h2>
@@ -526,6 +570,19 @@ export default function App() {
                 <span className="block text-xs font-normal text-slate-400">Scatter, nearest real tests &amp; citations</span>
               </button>
 
+              {/* Mission planner — verdicts for a chosen material list at
+                  the current atmosphere, with the one-line plan. Data
+                  from /api/plan when live, else the bundled data. */}
+              <button
+                type="button"
+                onClick={openPlan}
+                aria-label="Open mission planner"
+                className="mt-2 block w-full rounded-lg border border-emerald-400/40 bg-emerald-400/10 px-3 py-2 text-left text-sm font-semibold text-emerald-200 hover:border-emerald-300"
+              >
+                🗺️ Mission planner — {conditionShort}
+                <span className="block text-xs font-normal text-slate-400">Pick materials, get the verdict for each</span>
+              </button>
+
               <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
                 Flame is illustrative — verdicts come from real NASA PSI test data.
               </p>
@@ -666,6 +723,25 @@ export default function App() {
                 </p>
                 <p className="mt-1 text-xs leading-relaxed text-slate-300">{evidence.line}</p>
 
+                {coverage && (() => {
+                  const entry = coverage.atmospheres[atmosphere === 'custom' ? 'custom' : atmosphere];
+                  return entry ? (
+                    <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.05] p-3 text-[13px] leading-snug">
+                      <p className="font-semibold text-slate-100">Coverage — {coverage.label}</p>
+                      <p className="mt-0.5 text-slate-300">
+                        O&#8322; tested {coverage.o2 ? `${fmt(coverage.o2.min, 1)}–${fmt(coverage.o2.max, 1)}% across ${coverage.o2.n_levels} levels (${coverage.o2.n_rows} rows)` : 'never tested'} ·{' '}
+                        {coverage.pressure.recorded
+                          ? `pressure ${fmt(coverage.pressure.min, 2)}–${fmt(coverage.pressure.max, 2)} psi (${coverage.pressure.n_rows} rows)`
+                          : 'pressure never recorded'} · {coverage.rows_total} PSI rows for this material.
+                      </p>
+                      <p className="mt-0.5 text-slate-300">
+                        Confidence {entry.confidence == null ? '—' : entry.confidence.toFixed(2)} — {entry.confidence_note}
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-slate-400">{coverage.confidence_method}</p>
+                    </div>
+                  ) : null;
+                })()}
+
                 <h3 className="mt-3 text-sm font-semibold uppercase tracking-wider text-slate-400">Test cloud — O&#8322; vs pressure</h3>
                 <Scatter2D points={scatterPoints} selectedMaterial={material} atmosphere={scatterAtmosphere} verdict={evidence.verdict} />
 
@@ -702,6 +778,77 @@ export default function App() {
             ) : (
               <p className="text-sm text-slate-300">Loading evidence…</p>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Mission planner modal — pick materials, get each verdict at the
+          current atmosphere plus the one-line plan. Same glass shell as
+          the brief modal (max-h 85vh, scrollable on portrait phones). */}
+      {planOpen && (
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 p-3" role="dialog" aria-modal="true" aria-label="Mission planner">
+          <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-white/20 bg-slate-900/95 p-4 shadow-2xl backdrop-blur-md">
+            <div className="flex items-start justify-between gap-2">
+              <h2 className="text-base font-bold text-slate-100">
+                Mission planner — {conditionShort}
+              </h2>
+              <button type="button" onClick={() => setPlanOpen(false)} aria-label="Close planner"
+                className="shrink-0 rounded-md border border-white/15 bg-white/[0.08] px-2 py-0.5 text-xs font-bold text-slate-200">✕</button>
+            </div>
+            <p className="mt-1 text-xs leading-relaxed text-slate-300">
+              Pick the materials this mission carries. The verdict for each comes from the nearest real PSI test at {conditionShort} — nothing is assumed covered.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {HEADLINE_MATERIALS.map((m) => (
+                <label key={m.key} className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-white/15 bg-white/[0.05] px-2.5 py-1.5 text-sm text-slate-200">
+                  <input type="checkbox" checked={planMaterials.includes(m.key)}
+                    onChange={() => togglePlanMaterial(m.key)} aria-label={`Plan ${m.label}`} />
+                  {m.label}
+                </label>
+              ))}
+            </div>
+            <button type="button" onClick={openPlan} disabled={planMaterials.length === 0}
+              className="mt-3 rounded-lg border border-emerald-400/40 bg-emerald-400/10 px-3 py-2 text-sm font-semibold text-emerald-200 hover:border-emerald-300 disabled:opacity-40"
+            >
+              Build plan
+            </button>
+            {plan ? (
+              <>
+                <p className="mt-3 text-sm font-semibold leading-snug text-slate-100">{plan.plan_line}</p>
+                <p className="mt-1 text-xs text-slate-400">
+                  {plan.summary.tested} tested · {plan.summary.gap} gap{plan.summary.gap === 1 ? '' : 's'} · {plan.summary.partial} partial · {plan.summary.no_data} without PSI data
+                </p>
+                <ul className="mt-3 space-y-2">
+                  {plan.materials.map((e) => (
+                    <li key={e.material} className="rounded-lg border border-white/10 bg-white/[0.05] p-3 text-[13px] leading-snug">
+                      <p className="font-semibold" style={{ color: KIND_COLOR[e.kind] }}>{e.label} — {e.overall}</p>
+                      <p className="mt-0.5 text-slate-300">{e.line}</p>
+                      <p className="mt-0.5 text-slate-400">
+                        Confidence {e.confidence == null ? '—' : e.confidence.toFixed(2)} — {e.confidence_note}
+                        {e.nearest_o2_doi ? (<> · nearest test <a href={`https://doi.org/${e.nearest_o2_doi}`} target="_blank" rel="noreferrer" className="font-semibold text-sky-300 underline hover:text-sky-200">{e.nearest_o2_doi}</a></>) : ''}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+                <h3 className="mt-3 text-sm font-semibold uppercase tracking-wider text-slate-400">Citations — the investigations behind these numbers</h3>
+                <ul className="mt-1 list-disc space-y-1 pl-5 text-[12px] text-slate-300">
+                  {plan.citations.map((c) => (
+                    <li key={c.accession}>{c.accession} · {c.title}{c.doi ? (<> · DOI <a href={c.url} target="_blank" rel="noreferrer" className="font-semibold text-sky-300 underline hover:text-sky-200">{c.doi}</a></>) : ''}</li>
+                  ))}
+                </ul>
+                <p className="mt-3 text-[11px] leading-relaxed text-slate-400">{plan.disclaimer}</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+                  Data: NASA PSI, {plan.snapshot.rows} rows, {plan.snapshot.investigations} investigations, cleaned {plan.snapshot.cleaned_at}.
+                  {apiLive ? ' Served live by the verdict-engine API.' : ' Served from the bundled PSI data (API unreachable).'}
+                </p>
+              </>
+            ) : (
+              <p className="mt-3 text-sm text-slate-300">Building plan…</p>
+            )}
+            <div className="mt-3 flex gap-2">
+              <button type="button" onClick={() => setPlanOpen(false)}
+                className="rounded-lg border border-white/15 bg-white/[0.05] px-3 py-1.5 text-sm font-semibold text-slate-200">Close</button>
+            </div>
           </div>
         </div>
       )}

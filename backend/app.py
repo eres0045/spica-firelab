@@ -170,6 +170,56 @@ def brief():
     return jsonify(verdicts.mission_brief(data, atmosphere))
 
 
+@app.route("/api/coverage")
+def coverage():
+    data = verdicts.get_data()
+    material = request.args.get("material")
+    if not material:
+        return jsonify({"error": "param material is required"}), 400
+    if material not in data.verdicts:
+        return jsonify({"error": f"unknown material {material!r}"}), 404
+    atmosphere = request.args.get("atmosphere")
+    if atmosphere:
+        if atmosphere not in verdicts.ATMOSPHERE_KEYS:
+            return jsonify({"error": f"unknown atmosphere {atmosphere!r}"}), 400
+        return jsonify(verdicts.get_coverage(data, material, atmosphere_key=atmosphere))
+    try:
+        o2 = float(request.args["o2"])
+        pressure = float(request.args["pressure"])
+    except (KeyError, TypeError, ValueError):
+        if "o2" in request.args or "pressure" in request.args:
+            return jsonify({"error": "give ?atmosphere=ISS|Orion|Exploration "
+                                     "or ?o2=&pressure="}), 400
+        return jsonify(verdicts.get_coverage(data, material))
+    return jsonify(verdicts.get_coverage(data, material, o2_pct=o2, pressure_psi=pressure))
+
+
+@app.route("/api/plan")
+def plan():
+    data = verdicts.get_data()
+    raw = request.args.get("materials")
+    if not raw:
+        return jsonify({"error": "param materials is required (comma-separated list)"}), 400
+    materials = [s.strip() for s in raw.split(",") if s.strip()]
+    if not materials:
+        return jsonify({"error": "param materials is required (comma-separated list)"}), 400
+    for m in materials:
+        if m not in data.verdicts:
+            return jsonify({"error": f"unknown material {m!r}"}), 404
+    atmosphere = request.args.get("atmosphere")
+    if atmosphere:
+        if atmosphere not in verdicts.ATMOSPHERE_KEYS:
+            return jsonify({"error": f"unknown atmosphere {atmosphere!r}"}), 400
+        return jsonify(verdicts.mission_plan(data, materials, atmosphere_key=atmosphere))
+    try:
+        o2 = float(request.args["o2"])
+        pressure = float(request.args["pressure"])
+    except (KeyError, TypeError, ValueError):
+        return jsonify({"error": "give ?atmosphere=ISS|Orion|Exploration "
+                                 "or ?o2=&pressure="}), 400
+    return jsonify(verdicts.mission_plan(data, materials, o2_pct=o2, pressure_psi=pressure))
+
+
 @app.route("/api/freshness")
 def freshness():
     data = verdicts.get_data()

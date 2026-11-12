@@ -46,6 +46,10 @@ import {
   buildBrief,
   BRIEF_REPORTS,
   COVERAGE_DISCLAIMER,
+  buildCoverage,
+  buildCoverageLive,
+  buildPlan,
+  buildPlanLive,
 } from '../../src/lib/data.js';
 
 const PSI_API_ROOT = 'https://psi.nasa.gov/geode-py/ws/';
@@ -238,6 +242,8 @@ export default async function handler(req) {
           'GET /api/ranking?atmosphere=  (or ?o2=&pressure=)',
           'GET /api/evidence?material=&atmosphere=  (or ?o2=&pressure=)',
           'GET /api/brief?atmosphere=',
+          'GET /api/coverage?material=  (optionally &atmosphere= or &o2=&pressure=)',
+          'GET /api/plan?materials=<a,b>&atmosphere=  (or &o2=&pressure=)',
           'GET /api/freshness',
         ],
         snapshot: snapshot(),
@@ -318,6 +324,51 @@ export default async function handler(req) {
         return err(400, `unknown atmosphere '${atmosphere}'`);
       }
       return json(200, buildBrief(atmosphere));
+    }
+
+    if (r === '/coverage') {
+      const material = params.get('material');
+      if (!material) return err(400, 'param material is required');
+      if (!(material in VERDICTS)) return err(404, `unknown material '${material}'`);
+      const atmosphere = params.get('atmosphere');
+      if (atmosphere) {
+        if (!ATMOSPHERE_KEYS.includes(atmosphere)) {
+          return err(400, `unknown atmosphere '${atmosphere}'`);
+        }
+        return json(200, buildCoverage(material, atmosphere));
+      }
+      const o2 = numParam(params, 'o2');
+      const pressure = numParam(params, 'pressure');
+      if (o2 != null || pressure != null) {
+        if (o2 == null || pressure == null) {
+          return err(400, 'give ?atmosphere=ISS|Orion|Exploration or ?o2=&pressure=');
+        }
+        return json(200, buildCoverageLive(material, o2, pressure));
+      }
+      return json(200, buildCoverage(material));
+    }
+
+    if (r === '/plan') {
+      const raw = params.get('materials');
+      if (!raw) return err(400, 'param materials is required (comma-separated list)');
+      const materials = raw.split(',').map((s) => s.trim()).filter(Boolean);
+      if (!materials.length) return err(400, 'param materials is required (comma-separated list)');
+      for (const m of materials) {
+        if (!(m in VERDICTS)) return err(404, `unknown material '${m}'`);
+      }
+      const atmosphere = params.get('atmosphere');
+      if (atmosphere) {
+        if (!ATMOSPHERE_KEYS.includes(atmosphere)) {
+          return err(400, `unknown atmosphere '${atmosphere}'`);
+        }
+        return json(200, buildPlan(materials, atmosphere));
+      }
+      const o2 = numParam(params, 'o2');
+      const pressure = numParam(params, 'pressure');
+      if (o2 == null || pressure == null) {
+        return err(400, 'give ?atmosphere=ISS|Orion|Exploration or ?o2=&pressure=');
+      }
+      return json(200, buildPlanLive(materials, o2, pressure));
     }
 
     if (r === '/freshness') {

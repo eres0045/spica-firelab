@@ -488,6 +488,20 @@ export async function tryApiEvidence(material, atmosphereKey, base) {
 export async function tryApiEvidenceLive(material, o2, pressure, base) {
   return fetchJson(base, `/api/evidence?material=${encodeURIComponent(material)}&o2=${o2}&pressure=${pressure}`, 15000);
 }
+export async function tryApiCoverage(material, atmosphereKey, base) {
+  return fetchJson(base, `/api/coverage?material=${encodeURIComponent(material)}&atmosphere=${atmosphereKey}`, 15000);
+}
+export async function tryApiCoverageLive(material, o2, pressure, base) {
+  return fetchJson(base, `/api/coverage?material=${encodeURIComponent(material)}&o2=${o2}&pressure=${pressure}`, 15000);
+}
+export async function tryApiPlan(materials, atmosphereKey, base) {
+  const q = materials.map((m) => encodeURIComponent(m)).join(',');
+  return fetchJson(base, `/api/plan?materials=${q}&atmosphere=${atmosphereKey}`, 15000);
+}
+export async function tryApiPlanLive(materials, o2, pressure, base) {
+  const q = materials.map((m) => encodeURIComponent(m)).join(',');
+  return fetchJson(base, `/api/plan?materials=${q}&o2=${o2}&pressure=${pressure}`, 15000);
+}
 
 /** Row fields the evidence pack returns, verbatim from the cleaned row —
  *  the same 18 keys the backend's /api/evidence returns (EVIDENCE_ROW_KEYS
@@ -549,6 +563,181 @@ export function buildEvidence(material, atmosphereKey) {
 }
 export function buildEvidenceLive(material, o2Pct, pressurePsi) {
   return buildEvidenceFromVerdict(getLiveVerdict(material, o2Pct, pressurePsi));
+}
+
+/** Verdict confidence — how close the nearest real test is to the
+ *  condition, as a 0..1 score. NOT a probability and NOT an
+ *  interpolation: the nearest-test distance itself is the evidence.
+ *  Method (also returned in every payload as confidence_method):
+ *  - TESTED: 1.00 — the condition was actually run.
+ *  - PARTIAL: capped at 0.50 — O2 covered, but pressure was never
+ *    recorded, so only half the axes are verified.
+ *  - GAP (O2): 1 − o2_distance_pts ÷ target O2% (atmosphere O2, or
+ *    the slider O2 for custom cabins).
+ *  - GAP (pressure): 1 − pressure_distance_psi ÷ target psi.
+ *  - NO DATA: null — it cannot be judged.
+ *  Rounded to 2 decimals. */
+export function verdictConfidence(v) {
+  if (!v) return { score: null, note: 'No verdict.' };
+  if (v.kind === 'TESTED') return { score: 1, note: 'The condition was actually run in microgravity.' };
+  if (v.kind === 'PARTIAL') return { score: 0.5, note: 'O2 covered, but pressure was never recorded — half the axes verified.' };
+  if (v.kind === 'GAP_O2') {
+    const target = v.custom ? v.o2Target : ATMOSPHERES[v.atmosphere]?.o2;
+    if (v.o2_distance_pts == null || target == null || target <= 0) return { score: null, note: 'Nearest-test distance not recorded.' };
+    return { score: r2(Math.max(0, 1 - v.o2_distance_pts / target)), note: `Nearest test is ${fmt(v.o2_distance_pts, 1)} O2 pts from the ${fmt(target, 1)}% target.` };
+  }
+  if (v.kind === 'GAP_PRESSURE') {
+    const target = v.custom ? v.pressureTarget : ATMOSPHERES[v.atmosphere]?.pressure;
+    if (v.pressure_distance_psi == null || target == null || target <= 0) return { score: null, note: 'Nearest-test distance not recorded.' };
+    return { score: r2(Math.max(0, 1 - v.pressure_distance_psi / target)), note: `Nearest tested pressure is ${fmt(v.pressure_distance_psi, 2)} psi from the ${fmt(target, 1)} psi target.` };
+  }
+  return { score: null, note: 'No O2 data for this material in PSI — it cannot be judged.' };
+}
+export const CONFIDENCE_METHOD = 'confidence = 1 − nearest-test distance ÷ target value (O2 pts ÷ atmosphere O2%, or psi ÷ atmosphere psi); TESTED = 1.00; PARTIAL capped at 0.50 because pressure was never recorded; NO DATA has no confidence. A heuristic, not a probability — the distance itself is the evidence.';
+
+/** One atmosphere's coverage entry: the verdict, its gap, the nearest
+ *  real tests with DOIs, and the confidence score. */
+function coverageEntry(material, verdict) {
+  const gap = gapNumber(verdict);
+  const conf = verdictConfidence(verdict);
+  const o2Row = verdict.o2_nearest_row;
+  const pRow = verdict.pressure_nearest_row;
+  return {
+    kind: verdict.kind, overall: verdict.overall,
+    gap: gap.value ?? 0, gapUnit: gap.unit ?? 'O\u2082 pts', gapAxis: gap.axis ?? 'o2',
+    o2_distance_pts: verdict.o2_distance_pts ?? null,
+    pressure_distance_psi: verdict.pressure_distance_psi ?? null,
+    o2_nearest: verdict.o2_nearest ?? null,
+    o2_nearest_row: o2Row ?? null,
+    o2_nearest_doi: o2Row ? doiFor(verdict, o2Row[0]) : null,
+    pressure_nearest_psi: verdict.pressure_nearest_psi ?? null,
+    pressure_nearest_row: pRow ?? null,
+    pressure_nearest_doi: pRow ? doiFor(verdict, pRow[0]) : null,
+    confidence: conf.score, confidence_note: conf.note,
+    line: verdictLine(verdict),
+  };
+}
+
+/** Coverage pack for one material — the tested ranges, test counts,
+ *  and per-atmosphere confidence. Same shape and same math as the
+ *  backend (get_coverage in backend/verdicts.py, mirrored in the
+ *  Netlify Function), so the Evidence modal reads identically with or
+ *  without the API. With an atmosphere key it returns that atmosphere
+ *  only; without one it returns all three. */
+export function buildCoverage(material, atmosphereKey = null) {
+  const v = verdicts[material];
+  const rowsTotal = cleaned.rows.filter((r) => r.material_canonical === material).length;
+  const inv = v ? v.o2_by_investigation || {} : {};
+  const investigations = Object.entries(inv).map(([acc, e]) => ({
+    accession: acc, title: e.title, doi: e.doi, n: e.n, min: e.min, max: e.max,
+  }));
+  const o2 = v && v.o2
+    ? { min: v.o2.min, max: v.o2.max, levels: v.o2.levels, n_levels: v.o2.levels.length, n_rows: v.n_o2_rows }
+    : null;
+  const pressure = v && v.pressure && v.pressure.min != null
+    ? { recorded: true, min: r2(v.pressure.min), max: r2(v.pressure.max), n_rows: v.n_p_rows }
+    : { recorded: false, min: null, max: null, n_rows: v ? v.n_p_rows : 0 };
+  const atmospheres = {};
+  if (atmosphereKey) {
+    atmospheres[atmosphereKey] = coverageEntry(material, getVerdict(material, atmosphereKey));
+  } else {
+    for (const key of ATMOSPHERE_KEYS) atmospheres[key] = coverageEntry(material, getVerdict(material, key));
+  }
+  return {
+    material, label: labelFor(material), className: materialClass(material),
+    o2, pressure, rows_total: rowsTotal, investigations, atmospheres,
+    snapshot: dataSnapshot(), disclaimer: COVERAGE_DISCLAIMER,
+    confidence_method: CONFIDENCE_METHOD,
+  };
+}
+export function buildCoverageLive(material, o2Pct, pressurePsi) {
+  const c = buildCoverage(material);
+  const verdict = getLiveVerdict(material, o2Pct, pressurePsi);
+  c.atmospheres = { custom: { ...coverageEntry(material, verdict), o2_target: o2Pct, pressure_target: pressurePsi } };
+  return c;
+}
+
+/** One material's entry in a mission plan: verdict, gap, confidence
+ *  and the nearest real tests — the same fields the brief shows. */
+function planEntry(material, verdict) {
+  const gap = gapNumber(verdict);
+  const conf = verdictConfidence(verdict);
+  const o2Row = verdict.o2_nearest_row;
+  const pRow = verdict.pressure_nearest_row;
+  return {
+    material, label: labelFor(material), className: materialClass(material),
+    kind: verdict.kind, overall: verdict.overall,
+    gap: gap.value ?? 0, gapUnit: gap.unit ?? 'O\u2082 pts', gapAxis: gap.axis ?? 'o2',
+    line: verdictLine(verdict),
+    confidence: conf.score, confidence_note: conf.note,
+    nearest_o2_test: o2Row ? `${o2Row[0]} · ${o2Row[1]}` : null,
+    nearest_o2_doi: o2Row ? doiFor(verdict, o2Row[0]) : null,
+    nearest_pressure_test: pRow ? `${pRow[0]} · ${pRow[1]}` : null,
+    nearest_pressure_doi: pRow ? doiFor(verdict, pRow[0]) : null,
+  };
+}
+
+/** The plan's one-line verdict — counts plus the worst gap, built only
+ *  from the entries. Worst = lowest confidence among the gaps. */
+function planLine(entries, conditionsLabel) {
+  const total = entries.length;
+  const tested = entries.filter((e) => e.kind === 'TESTED').length;
+  const gaps = entries.filter((e) => e.kind === 'GAP_O2' || e.kind === 'GAP_PRESSURE');
+  const partials = entries.filter((e) => e.kind === 'PARTIAL');
+  const noData = entries.filter((e) => e.kind === 'NO_DATA');
+  const worst = [...gaps].sort((a, b) => (a.confidence ?? 1) - (b.confidence ?? 1))[0];
+  let line = `${tested} of ${total} material${total === 1 ? '' : 's'} TESTED at ${conditionsLabel}`;
+  const parts = [];
+  if (gaps.length) {
+    parts.push(`${gaps.length} gap${gaps.length === 1 ? '' : 's'}${worst ? ` — worst: ${worst.label}, ${fmt(worst.gap, worst.gapUnit === 'psi' ? 2 : 1)} ${worst.gapUnit} beyond the tested range` : ''}`);
+  }
+  if (partials.length) parts.push(`${partials.length} partial — ${partials.map((p) => p.label).join(', ')}, O2 covered, pressure never recorded`);
+  if (noData.length) parts.push(`${noData.length} without PSI data — ${noData.map((p) => p.label).join(', ')}`);
+  if (parts.length) line += `; ${parts.join('; ')}`;
+  else line += ' — every condition was actually run.';
+  return line;
+}
+
+function assemblePlan(entries, materials, atmosphere, conditions, conditionsLabel) {
+  const summary = {
+    total: entries.length,
+    tested: entries.filter((e) => e.kind === 'TESTED').length,
+    gap: entries.filter((e) => e.kind === 'GAP_O2' || e.kind === 'GAP_PRESSURE').length,
+    partial: entries.filter((e) => e.kind === 'PARTIAL').length,
+    no_data: entries.filter((e) => e.kind === 'NO_DATA').length,
+  };
+  const allDois = {};
+  for (const m of materials) {
+    const v = verdicts[m];
+    for (const [acc, inv] of Object.entries(v?.o2_by_investigation || {})) {
+      allDois[acc] = { accession: acc, title: inv.title, doi: inv.doi, url: inv.doi ? `https://doi.org/${inv.doi}` : null };
+    }
+  }
+  return {
+    atmosphere, conditions, materials: entries, summary,
+    plan_line: planLine(entries, conditionsLabel),
+    citations: Object.values(allDois),
+    reports: BRIEF_REPORTS, disclaimer: COVERAGE_DISCLAIMER, snapshot: dataSnapshot(),
+  };
+}
+
+/** Mission plan for a chosen material list at one atmosphere — the
+ *  per-material verdicts, the counts, and the one-line verdict. Same
+ *  math as the backend (mission_plan in backend/verdicts.py, mirrored
+ *  in the Netlify Function). Unknown materials are NO_DATA entries,
+ *  never assumed covered. */
+export function buildPlan(materials, atmosphereKey) {
+  const atm = ATMOSPHERES[atmosphereKey];
+  const entries = materials.map((m) => planEntry(m, getVerdict(m, atmosphereKey)));
+  return assemblePlan(entries, materials, atmosphereKey,
+    { o2_pct: atm.o2, o2_max_pct: atm.o2Max, pressure_psi: atm.pressure, blurb: atm.blurb },
+    `${atm.name} ${fmt(atm.o2, 1)}% O\u2082 @ ${fmt(atm.pressure, 1)} psi`);
+}
+export function buildPlanLive(materials, o2Pct, pressurePsi) {
+  const entries = materials.map((m) => planEntry(m, getLiveVerdict(m, o2Pct, pressurePsi)));
+  return assemblePlan(entries, materials, 'custom',
+    { o2_pct: o2Pct, pressure_psi: pressurePsi, custom: true },
+    `${fmt(o2Pct, 1)}% O\u2082 @ ${fmt(pressurePsi, 1)} psi (custom cabin)`);
 }
 
 /** NASA technical reports behind the headline investigations (further

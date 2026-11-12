@@ -104,6 +104,20 @@ describe('CAMERA_PRESETS — the panel camera section (no top-right toggle)', ()
     expect(dc).toBeLessThan(5);
   });
 
+  it('ISS is a close framing, not a second Wide — the station must read large', () => {
+    // 2026-11-12, mobile framing fix (Ronit: the ISS preset zoomed in
+    // too little on his phone — the station read as a thin line). The
+    // ISS camera sits 4.8 out, clearly closer than Wide (12.1), on the
+    // same view axis (same target, offset scaled down). If someone
+    // pushes it back out, the phone framing goes small again.
+    const iss = CAMERA_PRESETS.iss;
+    const wide = CAMERA_PRESETS.wide;
+    const dIss = Math.hypot(...iss.pos.map((v, i) => v - iss.target[i]));
+    const dWide = Math.hypot(...wide.pos.map((v, i) => v - wide.target[i]));
+    expect(dIss).toBeLessThan(5.5);
+    expect(dIss).toBeLessThan(dWide / 2);
+    expect(iss.target).toEqual([-1.5, 1.4, -4.0]);
+  });
   it('zoomDistance clamps the dolly to the view limits', () => {
     expect(zoomDistance(5, 0.8, 4, 16)).toBe(4); // would pass the min
     expect(zoomDistance(5, 0.8, 1.2, 6)).toBe(4); // in range, unchanged

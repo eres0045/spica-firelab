@@ -183,11 +183,17 @@ const CAM_INTERIOR = { view: 'interior', pos: [0.1, 0.1, 4.6], target: [0, 0.1, 
  * interior view (the glovebox is the hero), the rest are exterior
  * framings. `wide`/`inside` reuse the default view framings so the two
  * paths can never drift apart. Pure data — unit-tested.
+ * ISS (2026-11-12, mobile framing fix): the camera sits 4.8 out on the
+ * SAME view axis as before (offset scaled, target untouched), so the
+ * composition is unchanged and the station simply reads ~1.45x larger
+ * on every screen — desktop and portrait alike (portrait still gets
+ * its 1.45x framingFor pullback on top, landing at ~7.0, where the
+ * truss spans about half the phone width instead of a thin line).
  */
 export const CAMERA_PRESETS = {
   wide:    { view: 'exterior', label: 'Wide',    ...CAM_EXTERIOR },
   chamber: { view: 'interior', label: 'Chamber', pos: [0.4, 0.35, 3.6], target: [0, 0.0, -0.7], min: 1.2, max: 6 },
-  iss:     { view: 'exterior', label: 'ISS',     pos: [2.2, 2.4, 1.8], target: [-1.5, 1.4, -4.0], min: 2, max: 16 },
+  iss:     { view: 'exterior', label: 'ISS',     pos: [1.1, 2.1, 0.0], target: [-1.5, 1.4, -4.0], min: 2, max: 16 },
   inside:  { view: 'interior', label: 'Inside',  ...CAM_INTERIOR },
   earth:   { view: 'exterior', label: 'Earth',   pos: [1.2, 0.2, 4.6], target: [-6.5, -9.5, -9], min: 2, max: 20 },
 };

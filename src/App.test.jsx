@@ -280,4 +280,39 @@ describe('App — minimal fire lab (jsdom has no WebGL)', () => {
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining('/api/evidence?material=SIBAL'), expect.anything());
   });
+
+  it('evidence modal shows the coverage block: ranges, counts, confidence (API down, bundled data)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('no server'); }));
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: /Exploration · 34% O₂/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open evidence' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Evidence' });
+    expect(within(dialog).getByText(/Coverage — SIBAL fabric/)).toBeTruthy();
+    expect(within(dialog).getByText(/O₂ tested 16\.4–22\.1% across 17 levels \(30 rows\)/)).toBeTruthy();
+    expect(within(dialog).getByText(/pressure never recorded/)).toBeTruthy();
+    expect(within(dialog).getByText(/44 PSI rows for this material/)).toBeTruthy();
+    expect(within(dialog).getByText(/Confidence 0\.65 — Nearest test is 11\.9 O2 pts from the 34% target/)).toBeTruthy();
+    expect(within(dialog).getByText(/TESTED = 1\.00/)).toBeTruthy();
+  });
+
+  it('mission planner: all five headline materials at ISS, then uncheck Nomex and rebuild', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('no server'); }));
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'Open mission planner' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Mission planner' });
+    // Default atmosphere is ISS: Methanol + Heptane TESTED, the three
+    // solids PARTIAL (O2 covered, pressure never recorded).
+    expect(await within(dialog).findByText(/2 of 5 materials TESTED at ISS 21% O₂ @ 14\.7 psi/)).toBeTruthy();
+    expect(within(dialog).getByText(/3 partial — SIBAL fabric, Nomex, PMMA/)).toBeTruthy();
+    expect(within(dialog).getByText(/Methanol droplet — TESTED/)).toBeTruthy();
+    expect(within(dialog).getByText(/SIBAL fabric — PARTIAL — O2 covered/)).toBeTruthy();
+    // Uncheck Nomex and rebuild: 4 materials, 2 tested, 2 partial.
+    fireEvent.click(within(dialog).getByLabelText('Plan Nomex'));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Build plan' }));
+    expect(await within(dialog).findByText(/2 of 4 materials TESTED at ISS 21% O₂ @ 14\.7 psi/)).toBeTruthy();
+    expect(within(dialog).getByText(/2 partial — SIBAL fabric, PMMA/)).toBeTruthy();
+    expect(within(dialog).queryByText(/Nomex — PARTIAL/)).toBeNull();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Close planner' }));
+    expect(screen.queryByRole('dialog', { name: 'Mission planner' })).toBeNull();
+  });
 });
