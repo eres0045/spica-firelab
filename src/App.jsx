@@ -187,6 +187,33 @@ export default function App() {
   // verdict line.
   const [panelHidden, setPanelHidden] = useState(false);
 
+  // ---- Draggable panel (Nov 2026) -----------------------------------
+  // Desktop only (lg): drag the panel header to move the whole panel
+  // anywhere on screen — the Evidence/planner buttons sit below the
+  // fold in the tall docked panel, and dragging also clears the view
+  // of the scene behind it. Double-click the header to re-dock.
+  // panelPos null = docked (left, top-4/bottom-4); {x, y} = dragged.
+  const [panelPos, setPanelPos] = useState(null);
+  const panelRef = useRef(null);
+  const panelDrag = useRef(null);
+  const onPanelDragStart = (e) => {
+    if (e.button !== undefined && e.button !== 0) return;
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) return;
+    if (e.target.closest('button')) return;
+    const rect = panelRef.current?.getBoundingClientRect();
+    const origin = panelPos ?? (rect ? { x: rect.left, y: rect.top } : { x: 16, y: 16 });
+    panelDrag.current = { startX: e.clientX, startY: e.clientY, origin };
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+  };
+  const onPanelDragMove = (e) => {
+    const d = panelDrag.current;
+    if (!d) return;
+    const x = Math.max(-180, Math.min(window.innerWidth - 90, d.origin.x + e.clientX - d.startX));
+    const y = Math.max(0, Math.min(window.innerHeight - 60, d.origin.y + e.clientY - d.startY));
+    setPanelPos({ x, y });
+  };
+  const onPanelDragEnd = () => { panelDrag.current = null; };
+
   // ---- Live verdict engine (Flask API, Nov 2026) --------------------
   // apiBase: undefined = still probing, null = no backend reachable,
   // string = working base ('' = same origin, i.e. the Netlify deploy).
@@ -365,10 +392,18 @@ export default function App() {
           🔥 Show controls
         </button>
       ) : (
-      <div className="glass-text absolute inset-x-0 bottom-0 z-20 max-h-[40vh] overflow-y-auto rounded-t-2xl border-t border-white/20 bg-white/[0.07] shadow-2xl backdrop-blur-md lg:inset-x-auto lg:bottom-4 lg:left-4 lg:top-4 lg:max-h-[calc(100vh-32px)] lg:overflow-y-auto lg:w-[264px] lg:rounded-2xl lg:border">
+      <div ref={panelRef} style={panelPos ? { left: panelPos.x, top: panelPos.y, bottom: 'auto' } : undefined} className="glass-text absolute inset-x-0 bottom-0 z-20 max-h-[40vh] overflow-y-auto rounded-t-2xl border-t border-white/20 bg-white/[0.07] shadow-2xl backdrop-blur-md lg:inset-x-auto lg:bottom-4 lg:left-4 lg:top-4 lg:max-h-[calc(100vh-32px)] lg:overflow-y-auto lg:w-[264px] lg:rounded-2xl lg:border">
         <div className="p-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-200">🔥 Fire control</h2>
+          <div
+            className="flex cursor-grab select-none items-center justify-between active:cursor-grabbing"
+            title="Drag to move the panel · double-click to dock it back"
+            onPointerDown={onPanelDragStart}
+            onPointerMove={onPanelDragMove}
+            onPointerUp={onPanelDragEnd}
+            onPointerCancel={onPanelDragEnd}
+            onDoubleClick={() => setPanelPos(null)}
+          >
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-200">🔥 Fire control <span className="text-[10px] normal-case tracking-normal text-slate-500">· draggable</span></h2>
             <span className="flex gap-1">
               <button type="button"
                 onClick={() => setPanelOpen((v) => !v)}

@@ -17,7 +17,7 @@ npm run preview # http://localhost:4173
 
 Live demo: https://eres0045.github.io/spica-firelab/
 
-Demo video (30 s): https://eres0045.github.io/spica-firelab/video/spica-demo-30s.mp4
+Demo video (29 s): https://eres0045.github.io/spica-firelab/video/spica-demo-30s.mp4
 
 ## Data & credits
 
