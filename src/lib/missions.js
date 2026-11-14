@@ -40,7 +40,7 @@ function mission1() {
         text: 'SIBAL fabric at Exploration 34% O₂ — what is the verdict?',
         options: ['TESTED', 'GAP', 'PARTIAL'],
         correct: 1,
-        explain: `GAP. ${v.o2_nearest_row[0]} · ${v.o2_nearest_row[1]} is the nearest SIBAL test ever run — ${fmt(v.o2_nearest, 1)}% O₂. Nothing was ever tested above 22.1% O₂.`,
+        explain: `GAP. ${v.o2_nearest_row[0]} · ${v.o2_nearest_row[1]} is the nearest SIBAL test ever run — ${fmt(v.o2_nearest, 1)}% O₂. No SIBAL test in PSI's archive ever ran above 22.1% O₂.`,
       },
       {
         text: 'How far below 34% is the nearest SIBAL test?',

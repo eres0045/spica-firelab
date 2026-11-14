@@ -75,6 +75,9 @@ assert(t.body.count > 0 && t.body.points.every((p) => p.material === 'Methanol')
 t = await call('/api/ranking', { atmosphere: 'Exploration' });
 assert(t.body.cabin[0].material === 'SIBAL fabric' && t.body.cabin[0].gap === 11.9,
   `ranking Exploration cabin[0] SIBAL 11.9 (got ${t.body.cabin[0]?.material} ${t.body.cabin[0]?.gap})`);
+assert(t.body.solids.length === 3 && t.body.solids[0].material === 'Wax candle' && t.body.solids[0].gap === 16.6 &&
+  [...t.body.cabin, ...t.body.gases, ...t.body.solids].length === 34,
+  `ranking covers all 34 (solids 3, Wax candle 16.6 first; got ${t.body.solids?.map((s) => s.material)})`);
 t = await call('/api/ranking', { o2: '34', pressure: '8.2' });
 assert(t.body.custom === true && t.body.cabin[0].gap === 11.9, 'ranking live 34/8.2');
 
@@ -87,6 +90,8 @@ t = await call('/api/brief', { atmosphere: 'Exploration' });
 assert(t.body.cabin[0].material === 'SIBAL fabric' && t.body.cabin[0].gap === 11.9 &&
   t.body.citations.length === 9 && t.body.reports.length === 3,
   `brief cabin[0] SIBAL 11.9, 9 citations, 3 reports (got ${t.body.citations.length}/${t.body.reports.length})`);
+assert(t.body.solids.length === 3 && t.body.solids[0].material === 'Wax candle' && t.body.solids[0].gap === 16.6,
+  `brief solids 3, Wax candle first 16.6 (got ${JSON.stringify(t.body.solids?.map((s) => s.material))})`);
 assert(t.body.disclaimer.includes('Coverage, not certification'), 'brief disclaimer');
 
 t = await call('/api/coverage', { material: 'SIBAL fabric' });

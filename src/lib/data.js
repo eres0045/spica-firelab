@@ -27,6 +27,50 @@ import { pub } from './sceneModels.js';
 export const CLEANED = cleaned;
 export const VERDICTS = verdicts;
 
+/**
+ * Beyond PSI — flight tests OUTSIDE the PSI archive (display-only).
+ *
+ * SAFFIRE-IV–VI are not in PSI, so these rows are NOT in the 2,012 cleaned
+ * rows, NOT on the 997-point scatter, and change NO verdict. They are the
+ * closest published flight tests beyond PSI's archived-flight ceiling
+ * (22.2% O2 for solids): SIBAL burned at 31.0% O2 and PMMA at 30.3% O2,
+ * both at ~54 kPa. The exact lunar point (34% O2 at 8.2 psi) is still
+ * untested across a full material set — SoFIE-GEL's ranges include 34%
+ * and pressures spanning 8.2 psi, but the pairing is unconfirmed from the
+ * abstract, so that stays an open question, not a finding.
+ *
+ * Sources (verified 2026-11-14 from the NTRS PDFs):
+ * - SIBAL + PMMA: Urban et al., ICES-2024-365, Table 1 (SAFFIRE-VI tests
+ *   VI-2/VI-3, 20 cm/s concurrent flow). NTRS 20240002981.
+ * - Nomex: ICES-2025-156, Table 1 ("Event 4 Nomex Burn: 31.9% O2. Did not
+ *   Ignite"). NTRS 20250002675. The per-event pressure is NOT tabulated —
+ *   only the campaign initial conditions (54.1 kPa, 31.0% O2) — so Nomex
+ *   is O2-only here; no pressure is inferred or plotted.
+ */
+export const BEYOND_PSI = {
+  note: 'SAFFIRE-IV–VI are not in PSI: these 3 rows are NOT part of the 2,012 PSI rows and change no verdict.',
+  rows: [
+    {
+      material: 'SIBAL fabric', o2_pct: 31.0, pressure_kpa: 54.1,
+      pressure_psi: 7.85, outcome: 'burned', test: 'SAFFIRE-VI VI-2',
+      source: 'Urban et al., ICES-2024-365, Table 1',
+      ntrs: 'https://ntrs.nasa.gov/citations/20240002981',
+    },
+    {
+      material: 'PMMA (2-sided)', o2_pct: 30.3, pressure_kpa: 54.6,
+      pressure_psi: 7.92, outcome: 'burned', test: 'SAFFIRE-VI VI-3',
+      source: 'Urban et al., ICES-2024-365, Table 1',
+      ntrs: 'https://ntrs.nasa.gov/citations/20240002981',
+    },
+    {
+      material: 'Nomex', o2_pct: 31.9, pressure_kpa: null,
+      pressure_psi: null, outcome: 'did not ignite', test: 'SAFFIRE-VI Event 4',
+      source: 'ICES-2025-156, Table 1 (pressure not tabulated for this event)',
+      ntrs: 'https://ntrs.nasa.gov/citations/20250002675',
+    },
+  ],
+};
+
 export const ATMOSPHERES = {
   ISS: { key: 'ISS', name: 'ISS', o2: 21, o2Max: null, pressure: 14.7, color: '#22c55e', blurb: 'International Space Station cabin air' },
   Orion: { key: 'Orion', name: 'Orion', o2: 26.5, o2Max: 30, pressure: 10.2, color: '#3b82f6', blurb: 'Orion crew capsule (max 30% O\u2082)' },
@@ -71,6 +115,14 @@ export function materialClass(material) {
 /** Gas fuels — separate group in the ranking, never mixed with cabin materials. */
 export function gasMaterials() {
   return Object.keys(verdicts).filter((m) => materialClass(m) === 'gas');
+}
+
+/** Solids with O2 coverage that are NOT headline materials. They belong in
+ *  the ranking too — before this helper the mission brief ranked 31 of 34
+ *  materials and silently dropped Silicone, Wax candle and PMMA + Nomex. */
+export function otherSolidMaterials() {
+  const headline = new Set(HEADLINE_MATERIALS.map((m) => m.key));
+  return Object.keys(verdicts).filter((m) => !headline.has(m) && materialClass(m) === 'solid');
 }
 
 /** Mean of a min/max pair (PSI rows store a single value as min == max). */
@@ -242,7 +294,8 @@ export function getRankingLive(o2Pct, pressurePsi) {
   };
   const cabin = HEADLINE_MATERIALS.map((m) => m.key).map(rank).sort((a, b) => b.gap - a.gap);
   const gases = gasMaterials().map(rank).sort((a, b) => b.gap - a.gap);
-  return { cabin, gases };
+  const solids = otherSolidMaterials().map(rank).sort((a, b) => b.gap - a.gap);
+  return { cabin, gases, solids };
 }
 
 /**
@@ -404,7 +457,8 @@ export function getRanking(atmosphereKey) {
   };
   const cabin = HEADLINE_MATERIALS.map((m) => m.key).map(rank).sort((a, b) => b.gap - a.gap);
   const gases = gasMaterials().map(rank).sort((a, b) => b.gap - a.gap);
-  return { cabin, gases };
+  const solids = otherSolidMaterials().map(rank).sort((a, b) => b.gap - a.gap);
+  return { cabin, gases, solids };
 }
 
 export function labelFor(material) {
@@ -773,7 +827,7 @@ export function buildBrief(atmosphereKey) {
     };
   };
   const allDois = {};
-  for (const group of [ranking.cabin, ranking.gases]) {
+  for (const group of [ranking.cabin, ranking.solids, ranking.gases]) {
     for (const e of group) {
       for (const [acc, inv] of Object.entries(e.verdict.doiByInvestigation || {})) {
         allDois[acc] = { accession: acc, title: inv.title, doi: inv.doi, url: inv.doi ? `https://doi.org/${inv.doi}` : null };
@@ -784,6 +838,7 @@ export function buildBrief(atmosphereKey) {
     atmosphere: atmosphereKey,
     conditions: { o2_pct: atm.o2, o2_max_pct: atm.o2Max, pressure_psi: atm.pressure, blurb: atm.blurb },
     cabin: ranking.cabin.map(entry),
+    solids: ranking.solids.map(entry),
     gases: ranking.gases.map(entry),
     citations: Object.values(allDois),
     reports: BRIEF_REPORTS,

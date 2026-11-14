@@ -124,6 +124,33 @@ def test_ranking_exploration_puts_sibal_first(data):
     assert all(e["className"] == "gas" for e in r["gases"])
 
 
+def test_ranking_covers_all_34_materials(data):
+    # Regression: the brief used to rank 31 of 34 — Silicone, Wax candle
+    # and PMMA + Nomex (mixed sample) were in neither the cabin nor the
+    # gases group. They now form the solids group.
+    r = verdicts.get_ranking(data, "Exploration")
+    all_mats = [e["material"] for e in r["cabin"] + r["gases"] + r["solids"]]
+    assert len(all_mats) == 34
+    assert len(set(all_mats)) == 34
+    assert {e["material"] for e in r["solids"]} == {
+        "Silicone", "Wax candle", "PMMA + Nomex (mixed sample)"}
+    # Wax candle has the largest gap in the dataset (one O2 row, 17.4%).
+    assert r["solids"][0]["material"] == "Wax candle"
+    assert r["solids"][0]["gap"] == 16.6
+    assert r["solids"][0]["kind"] == "GAP_O2"
+    # The live ranking covers all 34 too.
+    live = verdicts.get_ranking_live(data, 34.0, 8.2)
+    assert len(live["cabin"] + live["gases"] + live["solids"]) == 34
+
+
+def test_mission_brief_includes_solids(data):
+    brief = verdicts.mission_brief(data, "Exploration")
+    assert len(brief["solids"]) == 3
+    assert brief["solids"][0]["material"] == "Wax candle"
+    assert brief["solids"][0]["gap"] == 16.6
+    assert brief["solids"][0]["nearest_o2_doi"] == "10.60555/4qc4-de67"
+
+
 def test_materials_list(data):
     mats = verdicts.list_materials(data)
     assert len(mats) == 34

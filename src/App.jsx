@@ -35,7 +35,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ATMOSPHERES, ATMOSPHERE_KEYS, HEADLINE_MATERIALS,
+  ATMOSPHERES, ATMOSPHERE_KEYS, HEADLINE_MATERIALS, BEYOND_PSI,
   buildBrief, buildEvidence, buildEvidenceLive, fmt, getScatterPoints,
   buildCoverage, buildCoverageLive, buildPlan, buildPlanLive,
   getVerdict, getLiveVerdict, materialClass,
@@ -656,6 +656,26 @@ export default function App() {
                     ))}
                   </tbody>
                 </table>
+                {(brief.solids || []).length > 0 && (
+                  <>
+                    <h3 className="mt-3 text-sm font-semibold uppercase tracking-wider text-slate-400">Other solids — ranked by gap</h3>
+                    <table className="mt-1 w-full text-left text-[13px] leading-snug">
+                      <tbody>
+                        {(brief.solids || []).map((e) => (
+                          <tr key={e.material} className="border-t border-white/10">
+                            <td className="py-1 pr-2 font-semibold text-slate-100">{e.label}</td>
+                            <td className="py-1 pr-2" style={{ color: KIND_COLOR[e.kind] }}>{KIND_LABEL[e.kind]}</td>
+                            <td className="py-1 pr-2 tabular-nums text-slate-200">{e.gap ? `${fmt(e.gap, e.gapUnit === 'psi' ? 2 : 1)} ${e.gapUnit}` : '—'}</td>
+                            <td className="py-1 text-slate-300">
+                              {e.gapAxis === 'pressure' ? e.nearest_pressure_test : e.nearest_o2_test}
+                              {(e.gapAxis === 'pressure' ? e.nearest_pressure_doi : e.nearest_o2_doi) ? ` · DOI ${(e.gapAxis === 'pressure' ? e.nearest_pressure_doi : e.nearest_o2_doi)}` : ''}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </>
+                )}
                 <h3 className="mt-3 text-sm font-semibold uppercase tracking-wider text-slate-400">Gases — separate group</h3>
                 <table className="mt-1 w-full text-left text-[13px] leading-snug">
                   <tbody>
@@ -744,6 +764,23 @@ export default function App() {
 
                 <h3 className="mt-3 text-sm font-semibold uppercase tracking-wider text-slate-400">Test cloud — O&#8322; vs pressure</h3>
                 <Scatter2D points={scatterPoints} selectedMaterial={material} atmosphere={scatterAtmosphere} verdict={evidence.verdict} />
+
+                <h3 className="mt-3 text-sm font-semibold uppercase tracking-wider text-slate-400">Beyond PSI — flight tests outside the archive</h3>
+                <div className="mt-1 rounded-lg border border-amber-400/30 bg-amber-400/[0.06] p-3 text-[13px] leading-snug">
+                  <p className="text-slate-200">
+                    SAFFIRE-IV–VI are not in PSI, so these 3 rows are <span className="font-semibold">not</span> part of the 2,012 PSI rows above and change no verdict. They are the closest published flight tests beyond PSI's archived-flight ceiling (22.2% O&#8322; for solids): SIBAL burned at 31.0% O&#8322;, PMMA at 30.3% — but the exact lunar point (34% O&#8322; at 8.2 psi) is still untested across a full material set.
+                  </p>
+                  <ul className="mt-2 space-y-1.5">
+                    {BEYOND_PSI.rows.map((r) => (
+                      <li key={r.test} className="text-slate-300">
+                        <span className="font-semibold text-slate-100">{r.material}</span> — {r.o2_pct.toFixed(1)}% O&#8322;
+                        {r.pressure_psi != null ? <> @ {r.pressure_psi.toFixed(2)} psi ({r.pressure_kpa} kPa)</> : ' · pressure not tabulated for this event'} ·{' '}
+                        <span className={r.outcome === 'burned' ? 'font-semibold text-red-300' : 'font-semibold text-emerald-300'}>{r.outcome}</span>{' '}
+                        · {r.test} · <a href={r.ntrs} target="_blank" rel="noreferrer" className="font-semibold text-sky-300 underline hover:text-sky-200">{r.source}</a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
 
                 <h3 className="mt-3 text-sm font-semibold uppercase tracking-wider text-slate-400">The rows behind this verdict</h3>
                 <EvidenceRowCard row={evidence.nearest_o2_row} title="Nearest O&#8322; test" />

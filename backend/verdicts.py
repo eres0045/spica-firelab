@@ -230,6 +230,15 @@ def gas_materials(data):
     return [m for m in data.verdicts if material_class(data, m) == "gas"]
 
 
+def other_solid_materials(data):
+    """Solids with O2 coverage that are NOT headline materials. They belong
+    in the ranking too — before this helper the mission brief ranked 31 of
+    34 materials and silently dropped Silicone, Wax candle and PMMA + Nomex."""
+    headline = {m["key"] for m in HEADLINE_MATERIALS}
+    return [m for m in data.verdicts
+            if m not in headline and material_class(data, m) == "solid"]
+
+
 def doi_for(verdict, accession):
     inv = (verdict or {}).get("doiByInvestigation") or {}
     entry = inv.get(accession)
@@ -443,7 +452,11 @@ def get_ranking(data, atmosphere_key):
         (_rank_entry(data, m, get_verdict(data, m, atmosphere_key))
          for m in gas_materials(data)),
         key=lambda e: -e["gap"])
-    return {"cabin": cabin, "gases": gases}
+    solids = sorted(
+        (_rank_entry(data, m, get_verdict(data, m, atmosphere_key))
+         for m in other_solid_materials(data)),
+        key=lambda e: -e["gap"])
+    return {"cabin": cabin, "gases": gases, "solids": solids}
 
 
 def get_ranking_live(data, o2_pct, pressure_psi):
@@ -455,7 +468,11 @@ def get_ranking_live(data, o2_pct, pressure_psi):
         (_rank_entry(data, m, get_live_verdict(data, m, o2_pct, pressure_psi))
          for m in gas_materials(data)),
         key=lambda e: -e["gap"])
-    return {"cabin": cabin, "gases": gases}
+    solids = sorted(
+        (_rank_entry(data, m, get_live_verdict(data, m, o2_pct, pressure_psi))
+         for m in other_solid_materials(data)),
+        key=lambda e: -e["gap"])
+    return {"cabin": cabin, "gases": gases, "solids": solids}
 
 
 def get_scatter_points(data, material="all"):
@@ -584,7 +601,7 @@ def mission_brief(data, atmosphere_key):
         }
 
     all_dois = {}
-    for group in (ranking["cabin"], ranking["gases"]):
+    for group in (ranking["cabin"], ranking["solids"], ranking["gases"]):
         for e in group:
             for acc, inv in ((e["verdict"].get("doiByInvestigation") or {}).items()):
                 all_dois[acc] = {"accession": acc, "title": inv.get("title"),
@@ -595,6 +612,7 @@ def mission_brief(data, atmosphere_key):
         "conditions": {"o2_pct": atm["o2"], "o2_max_pct": atm["o2Max"],
                        "pressure_psi": atm["pressure"], "blurb": atm["blurb"]},
         "cabin": [entry(e) for e in ranking["cabin"]],
+        "solids": [entry(e) for e in ranking["solids"]],
         "gases": [entry(e) for e in ranking["gases"]],
         "citations": list(all_dois.values()),
         "reports": CITATIONS,

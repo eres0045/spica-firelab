@@ -9,7 +9,7 @@ import {
   gasMaterials, detectWebGL, nearestRowFor,
   buildEvidence, buildEvidenceLive, EVIDENCE_ROW_KEYS,
   buildCoverage, buildCoverageLive, buildPlan, buildPlanLive,
-  verdictConfidence, HEADLINE_MATERIALS,
+  verdictConfidence, HEADLINE_MATERIALS, BEYOND_PSI,
 } from './data.js';
 
 describe('scatter data', () => {
@@ -130,6 +130,26 @@ describe('ranking', () => {
     expect(byMat['Nomex']).toBe('PARTIAL');
     expect(byMat['Methanol']).toBe('TESTED');
     expect(byMat['Heptane']).toBe('TESTED');
+  });
+
+  it('every one of the 34 materials is ranked somewhere — none dropped', () => {
+    // Regression: the brief used to rank 31 of 34 — Silicone, Wax candle
+    // and PMMA + Nomex (mixed sample) were in neither the cabin nor the
+    // gases group. They now form the solids group.
+    const { cabin, gases, solids } = getRanking('Exploration');
+    const all = [...cabin, ...gases, ...solids].map((r) => r.material);
+    expect(all).toHaveLength(34);
+    expect(new Set(all).size).toBe(34);
+    expect(solids.map((r) => r.material).sort()).toEqual(
+      ['PMMA + Nomex (mixed sample)', 'Silicone', 'Wax candle'].sort(),
+    );
+    // Wax candle has the largest gap in the dataset (one O2 row, 17.4%).
+    expect(solids[0].material).toBe('Wax candle');
+    expect(solids[0].gap).toBe(16.6);
+    expect(solids[0].kind).toBe('GAP_O2');
+    // The live ranking covers all 34 too.
+    const live = getRankingLive(34, 8.2);
+    expect([...live.cabin, ...live.gases, ...live.solids]).toHaveLength(34);
   });
 });
 
@@ -423,5 +443,34 @@ describe('buildPlan', () => {
     expect(new Set(accs).size).toBe(accs.length);
     expect(p.citations.find((c) => c.accession === 'PSI-99').url)
       .toBe('https://doi.org/10.60555/2chp-m469');
+  });
+});
+
+describe('Beyond PSI (SAFFIRE-VI, outside the archive)', () => {
+  it('has exactly the 3 published rows, with verified values', () => {
+    expect(BEYOND_PSI.rows).toHaveLength(3);
+    const [sibal, pmma, nomex] = BEYOND_PSI.rows;
+    expect(sibal.material).toBe('SIBAL fabric');
+    expect(sibal.o2_pct).toBe(31.0);
+    expect(sibal.pressure_psi).toBeCloseTo(7.85, 2);
+    expect(sibal.outcome).toBe('burned');
+    expect(pmma.material).toBe('PMMA (2-sided)');
+    expect(pmma.o2_pct).toBe(30.3);
+    expect(pmma.pressure_psi).toBeCloseTo(7.92, 2);
+    expect(pmma.outcome).toBe('burned');
+    expect(nomex.material).toBe('Nomex');
+    expect(nomex.o2_pct).toBe(31.9);
+    expect(nomex.outcome).toBe('did not ignite');
+    // Nomex per-event pressure is NOT tabulated: O2-only, never inferred.
+    expect(nomex.pressure_psi).toBeNull();
+    expect(nomex.pressure_kpa).toBeNull();
+  });
+
+  it('is display-only: no Beyond-PSI row exists in the PSI scatter', () => {
+    const pts = getScatterPoints();
+    expect(pts.length).toBe(997);
+    for (const b of BEYOND_PSI.rows) {
+      expect(pts.some((p) => p.material === b.material && p.o2 === b.o2_pct)).toBe(false);
+    }
   });
 });
