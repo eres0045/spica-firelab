@@ -17,13 +17,13 @@ afterEach(() => {
 });
 
 describe('App — minimal fire lab (jsdom has no WebGL)', () => {
-  it('renders the title chip, the panel and the SIBAL + ISS PARTIAL verdict line on load', () => {
+  it('renders the title chip, the panel and the SIBAL + Exploration GAP verdict line on load', () => {
     render(<App />);
     expect(screen.getByText('The 34% Question')).toBeTruthy();
     expect(screen.getByText('🔥 Fire control')).toBeTruthy();
-    // Default state: SIBAL fabric + ISS -> PARTIAL (O2 covered).
-    expect(screen.getByText(/SIBAL fabric · ISS 21%/)).toBeTruthy();
-    expect(screen.getByText(/PARTIAL · O₂ covered/)).toBeTruthy();
+    // Default state: SIBAL fabric + Exploration -> GAP 11.9 O2 pts.
+    expect(screen.getByText(/SIBAL fabric · Exploration 34%/)).toBeTruthy();
+    expect(screen.getByText(/GAP 11\.9 O₂ pts/)).toBeTruthy();
     // No-WebGL fallback from the scene (jsdom only).
     expect(screen.getByText(/The 3D fire lab needs WebGL/)).toBeTruthy();
     // Honesty + credits lines live in the panel now.
@@ -81,12 +81,11 @@ describe('App — minimal fire lab (jsdom has no WebGL)', () => {
     expect(screen.getByText(/TESTED/)).toBeTruthy();
   });
 
-  it('free play: dragging the O2 slider to 34% gives the same live GAP 11.9', () => {
+  it('free play: dragging the O2 slider to 30% gives the live GAP 7.9', () => {
     render(<App />);
-    fireEvent.change(screen.getByLabelText('Oxygen percent'), { target: { value: '34' } });
-    fireEvent.change(screen.getByLabelText('Pressure psi'), { target: { value: '8.2' } });
-    expect(screen.getByText(/Custom cabin · 34% O₂ @ 8\.2 psi/)).toBeTruthy();
-    expect(screen.getByText(/GAP 11\.9 O₂ pts/)).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Oxygen percent'), { target: { value: '30' } });
+    expect(screen.getByText(/Custom cabin · 30% O₂ @ 8\.2 psi/)).toBeTruthy();
+    expect(screen.getByText(/GAP 7\.9 O₂ pts/)).toBeTruthy();
   });
 
   it('camera presets switch views — Inside goes in, Wide comes back out', () => {
@@ -121,7 +120,7 @@ describe('App — minimal fire lab (jsdom has no WebGL)', () => {
     expect(screen.queryByLabelText('Oxygen percent')).toBeNull();
     expect(screen.queryByRole('button', { name: /Methanol droplet/ })).toBeNull();
     // The verdict line stays visible when collapsed.
-    expect(screen.getByText(/PARTIAL · O₂ covered/)).toBeTruthy();
+    expect(screen.getByText(/GAP 11\.9 O₂ pts/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Expand fire controls' }));
     expect(screen.getByLabelText('Oxygen percent')).toBeTruthy();
   });
@@ -132,7 +131,7 @@ describe('App — minimal fire lab (jsdom has no WebGL)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Hide fire control panel' }));
     // The whole panel is gone — sliders, verdict line, credits.
     expect(screen.queryByLabelText('Oxygen percent')).toBeNull();
-    expect(screen.queryByText(/PARTIAL · O₂ covered/)).toBeNull();
+    expect(screen.queryByText(/GAP 11\.9 O₂ pts/)).toBeNull();
     expect(screen.queryByText(/^Models:/)).toBeNull();
     // Title chip stays; the camera section is IN the panel, so it is gone too.
     expect(screen.getByText('The 34% Question')).toBeTruthy();
@@ -140,16 +139,16 @@ describe('App — minimal fire lab (jsdom has no WebGL)', () => {
     expect(screen.queryByRole('button', { name: 'Camera view: Inside' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Show fire controls' }));
     expect(screen.getByLabelText('Oxygen percent')).toBeTruthy();
-    expect(screen.getByText(/PARTIAL · O₂ covered/)).toBeTruthy();
+    expect(screen.getByText(/GAP 11\.9 O₂ pts/)).toBeTruthy();
   });
 
   it('live API: the UI renders the API verdict, not the bundled one', async () => {
     // The mock API deliberately returns a DIFFERENT verdict for the
-    // default SIBAL + ISS state (a GAP the bundled data does not have),
-    // so the test proves the line comes from the API response.
+    // default SIBAL + Exploration state (a GAP the bundled data does not
+    // have), so the test proves the line comes from the API response.
     const apiVerdict = {
-      material: 'SIBAL fabric', atmosphere: 'ISS', kind: 'GAP_O2',
-      overall: 'GAP (O2)', o2_nearest: 22.1, o2_distance_pts: 11.9,
+      material: 'SIBAL fabric', atmosphere: 'Exploration', kind: 'GAP_O2',
+      overall: 'GAP (O2)', o2_nearest: 22.1, o2_distance_pts: 5.5,
       o2_nearest_row: ['PSI-99', 'Sample 2-5'], o2_verdict: 'GAP',
       pressure_verdict: 'NOT RECORDED',
     };
@@ -166,7 +165,7 @@ describe('App — minimal fire lab (jsdom has no WebGL)', () => {
     // Probe succeeds -> the live-API tag appears...
     expect(await screen.findByText(/live API/)).toBeTruthy();
     // ...and the verdict line switches to the API's value.
-    await waitFor(() => expect(screen.getByText(/GAP 11\.9 O₂ pts/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/GAP 5\.5 O₂ pts/)).toBeTruthy());
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining('/api/verdict?material=SIBAL'), expect.anything());
   });
@@ -176,7 +175,7 @@ describe('App — minimal fire lab (jsdom has no WebGL)', () => {
     render(<App />);
     expect(await screen.findByText(/on-device data/)).toBeTruthy();
     // Same numbers as ever — the fallback is the bundled data.
-    expect(screen.getByText(/PARTIAL · O₂ covered/)).toBeTruthy();
+    expect(screen.getByText(/GAP 11\.9 O₂ pts/)).toBeTruthy();
   });
 
   it('mission brief button opens a printable brief with the ranking + citations', async () => {
@@ -184,12 +183,12 @@ describe('App — minimal fire lab (jsdom has no WebGL)', () => {
     render(<App />);
     fireEvent.click(screen.getByRole('button', { name: 'Open mission brief' }));
     const dialog = await screen.findByRole('dialog', { name: 'Mission brief' });
-    expect(within(dialog).getByText(/Mission brief — ISS/)).toBeTruthy();
-    // ISS ranking: SIBAL is PARTIAL, nearest test T25, DOI cited.
-    expect(within(dialog).getByText('PSI-25 · Test T25 · DOI 10.60555/4qc4-de67')).toBeTruthy();
+    expect(within(dialog).getByText(/Mission brief — Exploration/)).toBeTruthy();
+    // Exploration ranking: SIBAL is GAP 11.9, nearest test PSI-99 Sample 2-5, DOI cited.
+    expect(within(dialog).getByText('PSI-99 · Sample 2-5 · DOI 10.60555/2chp-m469')).toBeTruthy();
     // Citations section lists the investigations; reports list BASS-II.
     expect(within(dialog).getByText(/PSI-25 · Burning and Suppression of Solids - II/)).toBeTruthy();
-    expect(within(dialog).getByText(/BASS-II — NASA\/TM-20210011385/)).toBeTruthy();
+    expect(within(dialog).getByText(/BASS-II — NASA-TM-202110011385/)).toBeTruthy();
     expect(within(dialog).getByText(/Coverage, not certification/)).toBeTruthy();
     expect(within(dialog).getByRole('button', { name: 'Print mission brief' })).toBeTruthy();
     fireEvent.click(within(dialog).getByRole('button', { name: 'Close mission brief' }));
@@ -233,6 +232,37 @@ describe('App — minimal fire lab (jsdom has no WebGL)', () => {
     expect(within(dialog).getByText(/GAP 1\.98 psi/)).toBeTruthy();
     expect(within(dialog).getByText(/Nearest pressure test — PSI-69 · FLEX test 121 \(C12M101\)/)).toBeTruthy();
     expect(within(dialog).getByText(/10\.18–10\.18 psi/)).toBeTruthy();
+  });
+
+  it('evidence title shows the custom cabin values, not the nearest preset', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('no server'); }));
+    render(<App />);
+    fireEvent.change(screen.getByLabelText('Oxygen percent'), { target: { value: '24.5' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Open evidence' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Evidence' });
+    expect(within(dialog).getByText(/Evidence — SIBAL fabric · Custom 24\.5% O₂ @ 8\.2 psi/)).toBeTruthy();
+    // The title is the custom cabin — not the nearest preset (Orion).
+    // (The scatter itself still labels Orion as a marker — that is data,
+    // not the title — so scope the check to the title heading.)
+    expect(within(dialog).getByRole('heading', { name: /Evidence —/ }).textContent).not.toMatch(/Orion/);
+  });
+
+  it('Esc closes the Evidence modal', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('no server'); }));
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'Open evidence' }));
+    await screen.findByRole('dialog', { name: 'Evidence' });
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: 'Evidence' })).toBeNull();
+  });
+
+  it('all-materials toggle reveals Wax candle; picking it shows its 16.6-pt gap', () => {
+    render(<App />);
+    expect(screen.queryByRole('button', { name: /Wax candle/ })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /All 34 materials/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Wax candle/ }));
+    expect(screen.getByText(/Wax candle · Exploration 34%/)).toBeTruthy();
+    expect(screen.getByText(/GAP 16\.6 O₂ pts/)).toBeTruthy();
   });
 
   it('live API: the Evidence modal renders the /api/evidence pack, not the bundled one', async () => {
@@ -298,6 +328,9 @@ describe('App — minimal fire lab (jsdom has no WebGL)', () => {
   it('mission planner: all five headline materials at ISS, then uncheck Nomex and rebuild', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('no server'); }));
     render(<App />);
+    // The planner uses the atmosphere the panel is currently on — switch
+    // to ISS first so the plan is the ISS one this test asserts.
+    fireEvent.click(screen.getByRole('button', { name: /ISS · 21% O₂/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Open mission planner' }));
     const dialog = await screen.findByRole('dialog', { name: 'Mission planner' });
     // Default atmosphere is ISS: Methanol + Heptane TESTED, the three

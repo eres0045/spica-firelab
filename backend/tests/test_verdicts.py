@@ -32,8 +32,8 @@ def test_sibal_exploration_gap_11_9(data):
     assert v["o2_nearest"] == 22.1
     assert v["o2_nearest_row"] == ["PSI-99", "Sample 2-5"]
     assert verdicts.doi_for(v, "PSI-99") == "10.60555/2chp-m469"
-    # At the 37% max atmosphere the gap grows to 14.9.
-    assert v["o2_max_atmos_distance_pts"] == 14.9
+    # At the 36% max atmosphere (HLS 34±2%) the gap grows to 13.9.
+    assert v["o2_max_atmos_distance_pts"] == 13.9
 
 
 def test_methanol_exploration_pressure_gap_1_98(data):
@@ -401,3 +401,52 @@ def test_api_plan(client):
     assert client.get("/api/plan?materials=Nope&atmosphere=ISS").status_code == 404
     assert client.get("/api/plan?materials=Methanol&atmosphere=Mars").status_code == 400
     assert client.get("/api/plan?materials=Methanol&o2=34").status_code == 400
+
+
+# ---------------------------------------------------------------- Nov 14 audit fixes
+
+def test_bass_ii_citation_is_the_real_report_number():
+    refs = [c for c in verdicts.CITATIONS if c["ref"].startswith("BASS-II")]
+    assert len(refs) == 1
+    assert refs[0]["ref"] == "BASS-II \u2014 NASA-TM-202110011385"
+    # The NTRS link itself is the record ID \u2014 that part was always right.
+    assert refs[0]["url"] == "https://ntrs.nasa.gov/citations/20210011385"
+
+
+def test_exploration_max_is_the_verified_hls_bound():
+    assert verdicts.ATMOSPHERES["Exploration"]["o2Max"] == 36.0
+
+
+def test_verdict_lines_scope_the_untested_claim_to_psi(data):
+    v = verdicts.get_verdict(data, "SIBAL fabric", "Exploration")
+    assert "in PSI" in verdicts.verdict_line(v)
+    live = verdicts.get_live_verdict(data, "SIBAL fabric", 24.5, 8.2)
+    assert "in PSI" in verdicts.verdict_line(live)
+
+
+def test_mission_brief_names_the_next_test(data):
+    b = verdicts.mission_brief(data, "Exploration")
+    nt = b["nextTest"]
+    assert nt["material"] == "SIBAL fabric"
+    assert nt["o2_pct"] == 34.0
+    assert nt["pressure_psi"] == 8.2
+    assert nt["gap"] == 11.9
+    assert nt["n_o2_rows"] == 30
+    assert nt["line"].startswith("Run SIBAL fabric at 34%")
+
+
+def _project_root():
+    from pathlib import Path
+    p = Path(__file__).resolve()
+    for parent in [p, *p.parents]:
+        if ((parent / "app" / "backend" / "verdicts.py").exists()
+                and (parent / "backend" / "verdicts.py").exists()):
+            return parent
+    raise AssertionError("project root not found")
+
+
+def test_backend_copies_stay_identical():
+    root = _project_root()
+    a = (root / "app" / "backend" / "verdicts.py").read_text(encoding="utf-8")
+    b = (root / "backend" / "verdicts.py").read_text(encoding="utf-8")
+    assert a == b

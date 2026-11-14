@@ -38,8 +38,8 @@ ATMOSPHERES = {
             "blurb": "International Space Station cabin air"},
     "Orion": {"key": "Orion", "name": "Orion", "o2": 26.5, "o2Max": 30.0, "pressure": 10.2,
               "blurb": "Orion crew capsule (max 30% O2)"},
-    "Exploration": {"key": "Exploration", "name": "Exploration", "o2": 34.0, "o2Max": 37.0,
-                    "pressure": 8.2, "blurb": "Lunar-base habitat (max 37% O2)"},
+    "Exploration": {"key": "Exploration", "name": "Exploration", "o2": 34.0, "o2Max": 36.0,
+                    "pressure": 8.2, "blurb": "Lunar-base habitat (34% O2 @ 8.2 psi, HLS 34±2%)"},
 }
 ATMOSPHERE_KEYS = ["ISS", "Orion", "Exploration"]
 
@@ -60,7 +60,7 @@ CITATIONS = [
              "Combustion Science investigations (BASS, BASS-II, FLEX, FLEX-2, "
              "SAFFIRE-I/II, CFI). No login required.",
      "url": "https://psi.nasa.gov/"},
-    {"ref": "BASS-II — NASA/TM-20210011385",
+    {"ref": "BASS-II — NASA-TM-202110011385",
      "note": "Burning and Suppression of Solids - II (PSI-25): SIBAL, Nomex "
              "and PMMA microgravity flame tests.",
      "url": "https://ntrs.nasa.gov/citations/20210011385"},
@@ -274,6 +274,14 @@ def get_verdict(data, material, atmosphere_key):
            "kind": kind, "overall": overall}
     out.update(a)
     out["overall"] = overall
+    # o2_max_atmos_distance_pts is precomputed in coverage-verdicts.json
+    # with the old 37% Exploration max -- recompute it from the live
+    # ATMOSPHERES definition (36%, HLS 34+-2%) so the value can never go
+    # stale again when the atmosphere definition changes.
+    _atm_max = ATMOSPHERES[atmosphere_key].get("o2Max")
+    _o2_max = (v.get("o2") or {}).get("max")
+    out["o2_max_atmos_distance_pts"] = (
+        None if _atm_max is None or _o2_max is None else r2(_atm_max - _o2_max))
     out["doiByInvestigation"] = v.get("o2_by_investigation")
     out["o2Range"] = v.get("o2")
     out["pressureRange"] = v.get("pressure")
@@ -389,7 +397,7 @@ def verdict_line(v):
             above = v["o2Target"] > v["o2Range"]["max"]
             edge = v["o2Range"]["max"] if above else v["o2Range"]["min"]
             direction = "above" if above else "below"
-            return (f"No {m} test ran {direction} {fmt(edge, 1)}% O\u2082 \u2014 at {o2}% "
+            return (f"No {m} test ran {direction} {fmt(edge, 1)}% O\u2082 in PSI \u2014 at {o2}% "
                     f"O\u2082 the cabin is {fmt(v['o2_distance_pts'])} points beyond "
                     f"the tested range. Test first.")
         if v["kind"] == "GAP_PRESSURE":
@@ -409,7 +417,7 @@ def verdict_line(v):
         return (f"{m} was tested at {fmt(atm['o2'], 1)}% O\u2082 and {fmt(atm['pressure'], 1)} psi in "
                 f"microgravity \u2014 the condition was actually run.")
     if v["kind"] == "GAP_O2":
-        return (f"No {m} test ran above {fmt(v['o2_nearest'])}% O\u2082 \u2014 the "
+        return (f"No {m} test ran above {fmt(v['o2_nearest'])}% O\u2082 in PSI \u2014 the "
                 f"{fmt(atm['o2'], 1)}% {atm['name']} atmosphere is "
                 f"{fmt(v['o2_distance_pts'])} points beyond the tested range. Test first.")
     if v["kind"] == "GAP_PRESSURE":
@@ -607,8 +615,32 @@ def mission_brief(data, atmosphere_key):
                 all_dois[acc] = {"accession": acc, "title": inv.get("title"),
                                  "doi": inv.get("doi"),
                                  "url": f"https://doi.org/{inv['doi']}" if inv.get("doi") else None}
+    # Recommended next test — same rule as the frontend (see buildBrief):
+    # largest O2-axis gap among cabin/solid materials with >= 10 O2 rows.
+    next_test = None
+    for e in list(ranking["cabin"]) + list(ranking["solids"]):
+        if e["kind"] not in ("GAP_O2", "PARTIAL"):
+            continue
+        if (e["gap"] or 0) <= 0:
+            continue
+        if (e["verdict"].get("nO2Rows") or 0) < 10:
+            continue
+        if next_test is None or (e["gap"] or 0) > (next_test["gap"] or 0):
+            next_test = e
+    next_test_out = None
+    if next_test:
+        next_test_out = {
+            "material": next_test["material"], "label": next_test["label"],
+            "gap": next_test["gap"], "gapUnit": next_test["gapUnit"],
+            "n_o2_rows": next_test["verdict"].get("nO2Rows") or 0,
+            "o2_pct": atm["o2"], "pressure_psi": atm["pressure"],
+            "line": (f"Run {next_test['label']} at {fmt(atm['o2'], 1)}% O\u2082, "
+                     f"{fmt(atm['pressure'], 1)} psi \u2014 the {atm['name']} point where "
+                     f"its gap is {fmt(next_test['gap'])} {next_test['gapUnit']}."),
+        }
     return {
         "atmosphere": atmosphere_key,
+        "nextTest": next_test_out,
         "conditions": {"o2_pct": atm["o2"], "o2_max_pct": atm["o2Max"],
                        "pressure_psi": atm["pressure"], "blurb": atm["blurb"]},
         "cabin": [entry(e) for e in ranking["cabin"]],

@@ -38,7 +38,7 @@ import {
   ATMOSPHERES, ATMOSPHERE_KEYS, HEADLINE_MATERIALS, BEYOND_PSI,
   buildBrief, buildEvidence, buildEvidenceLive, fmt, getScatterPoints,
   buildCoverage, buildCoverageLive, buildPlan, buildPlanLive,
-  getVerdict, getLiveVerdict, materialClass,
+  getVerdict, getLiveVerdict, materialClass, otherMaterials,
   gapNumber, KIND_LABEL, KIND_COLOR, verdictLine,
   tryApi, tryApiVerdict, tryApiLiveVerdict, tryApiBrief,
   tryApiEvidence, tryApiEvidenceLive,
@@ -109,11 +109,12 @@ function verdictLineShort(verdict, materialLabel, conditionShort) {
 }
 
 export default function App() {
-  const [atmosphere, setAtmosphere] = useState('ISS');
-  const [o2, setO2] = useState(21);
-  const [pressure, setPressure] = useState(14.7);
+  const [atmosphere, setAtmosphere] = useState('Exploration');
+  const [o2, setO2] = useState(34);
+  const [pressure, setPressure] = useState(8.2);
   const [flow, setFlow] = useState(0);
   const [material, setMaterial] = useState('SIBAL fabric');
+  const [showAllMaterials, setShowAllMaterials] = useState(false);
   const [sceneView, setSceneView] = useState('exterior'); // 'exterior' | 'interior'
   // Walk mode (first-person inside the station — Ronit 2026-11-12:
   // "make me move when I am inside iss station chamber? 360"). Drag
@@ -323,6 +324,15 @@ export default function App() {
       ? buildPlanLive(chosen, o2, pressure)
       : buildPlan(chosen, atmosphere)));
   };
+  // Esc closes any open modal (brief / evidence / planner).
+  useEffect(() => {
+    if (!briefOpen && !evidenceOpen && !planOpen) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape') { setBriefOpen(false); setEvidenceOpen(false); setPlanOpen(false); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [briefOpen, evidenceOpen, planOpen]);
   const togglePlanMaterial = (key) => {
     setPlanMaterials((prev) => (prev.includes(key)
       ? prev.filter((k) => k !== key)
@@ -467,6 +477,7 @@ export default function App() {
                   </button>
                 ))}
               </div>
+              <p className="mt-1.5 text-[11px] leading-tight text-slate-400">Tip: tap Chamber to see the flame inside the glovebox.</p>
               {/* Walk mode — one tap from anywhere (Ronit 2026-11-12:
                   the button used to hide until Inside, so he could
                   never find it; and tapping it from the exterior did
@@ -557,6 +568,7 @@ export default function App() {
                     onChange={(e) => setFlow(parseFloat(e.target.value))}
                     className="mt-1 w-full accent-amber-400" aria-label="Flow cm per second" />
                   <div className="flex justify-between text-[11px] text-slate-500"><span>0 — perfect sphere</span><span>30 — stretched</span></div>
+                  <p className="mt-1 text-[11px] leading-tight text-slate-400">Flow shapes the flame only — verdicts are O&#8322; × pressure.</p>
                 </div>
               </div>
 
@@ -578,6 +590,32 @@ export default function App() {
                   </button>
                 ))}
               </div>
+              <button
+                type="button"
+                onClick={() => setShowAllMaterials((v) => !v)}
+                aria-expanded={showAllMaterials}
+                className="mt-1.5 block w-full rounded-lg border border-white/10 bg-white/[0.05] px-3 py-1 text-left text-sm font-semibold text-slate-200 hover:border-white/30"
+              >
+                {showAllMaterials ? '▾ All 34 materials' : '▸ All 34 materials — 3 more solids, 26 gases'}
+              </button>
+              {showAllMaterials && (
+                <div className="mt-1.5 space-y-1.5">
+                  {otherMaterials().map((m) => (
+                    <button
+                      key={m.key}
+                      type="button"
+                      onClick={() => setMaterial(m.key)}
+                      aria-pressed={material === m.key}
+                      className={`block w-full rounded-lg border px-3 py-1 text-left text-sm font-semibold ${
+                        material === m.key ? 'border-amber-400 bg-white/[0.16] text-amber-200' : 'border-white/10 bg-white/[0.05] text-slate-200 hover:border-white/30'
+                      }`}
+                    >
+                      {m.label}
+                      <span className="block text-xs font-normal text-slate-400">{m.className}{m.accessions.length ? ` · ${m.accessions.join(', ')}` : ''}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {/* Mission brief — printable ranking + citations for this
                   atmosphere. Data from /api/brief when live, else the
@@ -727,6 +765,13 @@ export default function App() {
                     ))}
                   </tbody>
                 </table>
+                {brief.nextTest && (
+                  <div className="mt-3 rounded-lg border border-emerald-400/40 bg-emerald-400/10 p-3">
+                    <h3 className="text-sm font-semibold uppercase tracking-wider text-emerald-200">Recommended next test</h3>
+                    <p className="mt-1 text-[13px] leading-snug text-slate-100">{brief.nextTest.line}</p>
+                    <p className="mt-1 text-xs text-slate-400">Largest O&#8322; gap among cabin/solid materials with ≥10 O&#8322; rows behind them ({brief.nextTest.n_o2_rows} rows for {brief.nextTest.label}).</p>
+                  </div>
+                )}
                 <h3 className="mt-3 text-sm font-semibold uppercase tracking-wider text-slate-400">Citations — the tests behind these numbers</h3>
                 <ul className="mt-1 list-disc space-y-1 pl-5 text-[12px] text-slate-300">
                   {brief.citations.map((c) => (
@@ -768,7 +813,9 @@ export default function App() {
               <>
                 <div className="flex items-start justify-between gap-2">
                   <h2 className="text-base font-bold text-slate-100">
-                    Evidence — {materialLabel} · {ATMOSPHERES[briefAtmosphere].name} {ATMOSPHERES[briefAtmosphere].o2}% O&#8322; @ {ATMOSPHERES[briefAtmosphere].pressure} psi
+                    Evidence — {materialLabel} · {atmosphere === 'custom'
+                      ? <>Custom {fmt(o2, 1)}% O&#8322; @ {fmt(pressure, 1)} psi</>
+                      : <>{ATMOSPHERES[briefAtmosphere].name} {ATMOSPHERES[briefAtmosphere].o2}% O&#8322; @ {ATMOSPHERES[briefAtmosphere].pressure} psi</>}
                   </h2>
                   <button type="button" onClick={() => setEvidenceOpen(false)} aria-label="Close evidence"
                     className="shrink-0 rounded-md border border-white/15 bg-white/[0.08] px-2 py-0.5 text-xs font-bold text-slate-200">✕</button>
@@ -871,7 +918,7 @@ export default function App() {
               Pick the materials this mission carries. The verdict for each comes from the nearest real PSI test at {conditionShort} — nothing is assumed covered.
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
-              {HEADLINE_MATERIALS.map((m) => (
+              {[...HEADLINE_MATERIALS, ...otherMaterials()].map((m) => (
                 <label key={m.key} className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-white/15 bg-white/[0.05] px-2.5 py-1.5 text-sm text-slate-200">
                   <input type="checkbox" checked={planMaterials.includes(m.key)}
                     onChange={() => togglePlanMaterial(m.key)} aria-label={`Plan ${m.label}`} />

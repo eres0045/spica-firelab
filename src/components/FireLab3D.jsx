@@ -1339,6 +1339,18 @@ export default function FireLab3D({ o2, pressure, flow, material, materialClass,
       }
     };
 
+    // Idle preload (2026-11-14): the flame lives inside the station, and
+    // the 37 MB interior tour is the slowest first click in the app.
+    // After first paint, fetch it on idle so Chamber/Inside open
+    // instantly. Desktop only (never on mobile data) and never when the
+    // user asked to save data. loadInteriorScan is idempotent — if the
+    // user already entered the interior, this is a no-op.
+    loadOnIdle(() => {
+      if (typeof window === 'undefined' || window.innerWidth < 1024) return;
+      if (navigator.connection && navigator.connection.saveData) return;
+      loadInteriorScan();
+    });
+
     const clock = new THREE.Clock();
     let raf = 0;
     const updateCloud = (cloud, radius, elong, flicker, t, shift) => {

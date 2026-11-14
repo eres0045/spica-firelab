@@ -74,7 +74,7 @@ export const BEYOND_PSI = {
 export const ATMOSPHERES = {
   ISS: { key: 'ISS', name: 'ISS', o2: 21, o2Max: null, pressure: 14.7, color: '#22c55e', blurb: 'International Space Station cabin air' },
   Orion: { key: 'Orion', name: 'Orion', o2: 26.5, o2Max: 30, pressure: 10.2, color: '#3b82f6', blurb: 'Orion crew capsule (max 30% O\u2082)' },
-  Exploration: { key: 'Exploration', name: 'Exploration', o2: 34, o2Max: 37, pressure: 8.2, color: '#f97316', blurb: 'Lunar-base habitat (max 37% O\u2082)' },
+  Exploration: { key: 'Exploration', name: 'Exploration', o2: 34, o2Max: 36, pressure: 8.2, color: '#f97316', blurb: 'Lunar-base habitat (34% O\u2082 @ 8.2 psi, HLS 34±2%)' },
 };
 export const ATMOSPHERE_KEYS = ['ISS', 'Orion', 'Exploration'];
 
@@ -123,6 +123,24 @@ export function gasMaterials() {
 export function otherSolidMaterials() {
   const headline = new Set(HEADLINE_MATERIALS.map((m) => m.key));
   return Object.keys(verdicts).filter((m) => !headline.has(m) && materialClass(m) === 'solid');
+}
+
+/** Every verdict-eligible material that is NOT a headline one (29 of 34):
+ *  the 3 remaining solids first, then the 26 gases, alphabetical within
+ *  each class. The lab picker and the planner both offer these — the
+ *  verdict math is generic, so any of the 34 is selectable, not just the
+ *  five headline ones. Each entry carries the PSI accessions behind it. */
+export function otherMaterials() {
+  const headline = new Set(HEADLINE_MATERIALS.map((m) => m.key));
+  const rank = { solid: 0, droplet: 1, gas: 2, other: 3 };
+  return Object.keys(verdicts)
+    .filter((k) => !headline.has(k))
+    .map((k) => ({
+      key: k, label: k, className: materialClass(k),
+      accessions: Object.keys(verdicts[k].o2_by_investigation || {}),
+    }))
+    .sort((a, b) => (rank[a.className] - rank[b.className])
+      || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
 }
 
 /** Mean of a min/max pair (PSI rows store a single value as min == max). */
@@ -352,7 +370,14 @@ export function getVerdict(material, atmosphereKey) {
   else if (a.overall === 'GAP (O2)') kind = 'GAP_O2';
   else if (a.overall === 'GAP (pressure)') kind = 'GAP_PRESSURE';
   else if (String(a.overall).startsWith('PARTIAL')) kind = 'PARTIAL';
-  return { material, atmosphere: atmosphereKey, kind, overall: a.overall, ...a, doiByInvestigation: v.o2_by_investigation, o2Range: v.o2, pressureRange: v.pressure, nO2Rows: v.n_o2_rows, nPRows: v.n_p_rows };
+  // o2_max_atmos_distance_pts is precomputed in coverage-verdicts.json
+  // with the old 37% Exploration max — recompute it from the live
+  // ATMOSPHERES definition (36%, HLS 34±2%) so the value can never go
+  // stale again when the atmosphere definition changes.
+  const atmMax = ATMOSPHERES[atmosphereKey].o2Max;
+  return { material, atmosphere: atmosphereKey, kind, overall: a.overall, ...a,
+    o2_max_atmos_distance_pts: atmMax == null || !v.o2 ? null : r2(atmMax - v.o2.max),
+    doiByInvestigation: v.o2_by_investigation, o2Range: v.o2, pressureRange: v.pressure, nO2Rows: v.n_o2_rows, nPRows: v.n_p_rows };
 }
 
 export const KIND_LABEL = { TESTED: 'TESTED', GAP_O2: 'GAP', GAP_PRESSURE: 'GAP', PARTIAL: 'PARTIAL', NO_DATA: 'NO DATA' };
@@ -387,7 +412,7 @@ export function verdictLine(v) {
     if (v.kind === 'GAP_O2') {
       const dir = v.o2Target > v.o2Range.max ? 'above' : 'below';
       const edge = v.o2Target > v.o2Range.max ? v.o2Range.max : v.o2Range.min;
-      return `No ${m} test ran ${dir} ${fmt(edge, 1)}% O\u2082 — at ${o2}% O\u2082 the cabin is ${fmt(v.o2_distance_pts)} points beyond the tested range. Test first.`;
+      return `No ${m} test ran ${dir} ${fmt(edge, 1)}% O\u2082 in PSI — at ${o2}% O\u2082 the cabin is ${fmt(v.o2_distance_pts)} points beyond the tested range. Test first.`;
     }
     if (v.kind === 'GAP_PRESSURE') {
       const above = v.pressureTarget < v.pressure_nearest_psi;
@@ -402,7 +427,7 @@ export function verdictLine(v) {
     return `${m} was tested at ${atm.o2}% O\u2082 and ${atm.pressure} psi in microgravity — the condition was actually run.`;
   }
   if (v.kind === 'GAP_O2') {
-    return `No ${m} test ran above ${fmt(v.o2_nearest)}% O\u2082 — the ${atm.o2}% ${atm.name} atmosphere is ${fmt(v.o2_distance_pts)} points beyond the tested range. Test first.`;
+    return `No ${m} test ran above ${fmt(v.o2_nearest)}% O\u2082 in PSI — the ${atm.o2}% ${atm.name} atmosphere is ${fmt(v.o2_distance_pts)} points beyond the tested range. Test first.`;
   }
   if (v.kind === 'GAP_PRESSURE') {
     return `${m} was tested at the ${atm.o2}% O\u2082 edge, but the nearest tested pressure is ${fmt(v.pressure_nearest_psi)} psi — ${fmt(v.pressure_distance_psi)} psi above the ${atm.pressure} psi ${atm.name} atmosphere.`;
@@ -517,13 +542,17 @@ async function fetchJson(base, path, timeoutMs = 15000) {
   }
 }
 export async function tryApi() {
+  // Probe ONE cheap endpoint per base first: on the static Pages host the
+  // API does not exist, and three parallel 404s pollute the console for
+  // nothing. Only when the probe answers do we fetch the rest.
   for (const base of API_CANDIDATES) {
-    const [materials, scatter, ranking] = await Promise.all([
-      fetchJson(base, '/api/materials'),
+    const materials = await fetchJson(base, '/api/materials');
+    if (!materials) continue;
+    const [scatter, ranking] = await Promise.all([
       fetchJson(base, '/api/scatter?material=all'),
       fetchJson(base, '/api/ranking?atmosphere=Exploration'),
     ]);
-    if (materials && scatter && ranking) return { materials, scatter, ranking, base };
+    if (scatter && ranking) return { materials, scatter, ranking, base };
   }
   return null;
 }
@@ -798,7 +827,7 @@ export function buildPlanLive(materials, o2Pct, pressurePsi) {
  *  reading — the DOIs in the data are the primary citations). */
 export const BRIEF_REPORTS = [
   { ref: 'NASA PSI — Physical Sciences Informatics (psi.nasa.gov)', note: 'Public NASA data system; the 2,012 cleaned rows come from its Combustion Science investigations (BASS, BASS-II, FLEX, FLEX-2, SAFFIRE-I/II, CFI). No login required.', url: 'https://psi.nasa.gov/' },
-  { ref: 'BASS-II — NASA/TM-20210011385', note: 'Burning and Suppression of Solids - II (PSI-25): SIBAL, Nomex and PMMA microgravity flame tests.', url: 'https://ntrs.nasa.gov/citations/20210011385' },
+  { ref: 'BASS-II — NASA-TM-202110011385', note: 'Burning and Suppression of Solids - II (PSI-25): SIBAL, Nomex and PMMA microgravity flame tests.', url: 'https://ntrs.nasa.gov/citations/20210011385' },
   { ref: 'FLEX — NASA/TP-2015-216046, Table IX', note: 'Flame Extinguishment Experiment (PSI-69): methanol and heptane droplet tests, including extinction outcomes.', url: 'https://ntrs.nasa.gov/citations/20150019316' },
 ];
 
@@ -834,8 +863,28 @@ export function buildBrief(atmosphereKey) {
       }
     }
   }
+  // Recommended next test — the concrete test that would close the most
+  // ground: the largest O2-axis gap among cabin/solid materials with
+  // >= 10 O2 rows behind them (well-evidenced). Gases are excluded (not
+  // cabin materials) and so is Wax candle: its larger gap rests on a
+  // single O2 row. The brief already ranks everything; this names the
+  // one test to run next.
+  let nextTest = null;
+  for (const e of [...ranking.cabin, ...ranking.solids]) {
+    if (e.kind !== 'GAP_O2' && e.kind !== 'PARTIAL') continue;
+    if ((e.gap ?? 0) <= 0) continue;
+    const n = e.verdict?.nO2Rows ?? 0;
+    if (n < 10) continue;
+    if (!nextTest || (e.gap ?? 0) > (nextTest.gap ?? 0)) nextTest = e;
+  }
+  const nextTestOut = nextTest ? {
+    material: nextTest.material, label: nextTest.label, gap: nextTest.gap, gapUnit: nextTest.gapUnit,
+    n_o2_rows: nextTest.verdict?.nO2Rows ?? 0, o2_pct: atm.o2, pressure_psi: atm.pressure,
+    line: `Run ${nextTest.label} at ${fmt(atm.o2, 1)}% O\u2082, ${fmt(atm.pressure, 1)} psi — the ${atm.name} point where its gap is ${fmt(nextTest.gap)} ${nextTest.gapUnit}.`,
+  } : null;
   return {
     atmosphere: atmosphereKey,
+    nextTest: nextTestOut,
     conditions: { o2_pct: atm.o2, o2_max_pct: atm.o2Max, pressure_psi: atm.pressure, blurb: atm.blurb },
     cabin: ranking.cabin.map(entry),
     solids: ranking.solids.map(entry),

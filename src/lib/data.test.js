@@ -9,7 +9,8 @@ import {
   gasMaterials, detectWebGL, nearestRowFor,
   buildEvidence, buildEvidenceLive, EVIDENCE_ROW_KEYS,
   buildCoverage, buildCoverageLive, buildPlan, buildPlanLive,
-  verdictConfidence, HEADLINE_MATERIALS, BEYOND_PSI,
+  verdictConfidence, HEADLINE_MATERIALS, BEYOND_PSI, buildBrief,
+  BRIEF_REPORTS, ATMOSPHERES, otherMaterials,
 } from './data.js';
 
 describe('scatter data', () => {
@@ -190,7 +191,7 @@ describe('live verdicts (Fire Lab sliders — arbitrary O2 / pressure)', () => {
     expect(v.kind).toBe('GAP_O2');
     expect(v.o2_distance_pts).toBe(7.9);
     expect(v.o2_nearest_row).toEqual(['PSI-99', 'Sample 2-5']);
-    // Methanol at 37% O2 (Exploration max): O2 gap 3.0 pts below 34%.
+    // Methanol at 37% O2 (above the Exploration max of 36%): O2 gap 3.0 pts below 34%.
     const m37 = getLiveVerdict('Methanol', 37, 8.2);
     expect(m37.kind).toBe('GAP_O2');
     expect(m37.o2_distance_pts).toBe(3.0);
@@ -472,5 +473,46 @@ describe('Beyond PSI (SAFFIRE-VI, outside the archive)', () => {
     for (const b of BEYOND_PSI.rows) {
       expect(pts.some((p) => p.material === b.material && p.o2 === b.o2_pct)).toBe(false);
     }
+  });
+});
+
+describe('Nov 14 audit fixes (citations, scoping, next test)', () => {
+  it('BASS-II cites the real report number, NASA-TM-202110011385', () => {
+    const bass = BRIEF_REPORTS.find((r) => r.ref.startsWith('BASS-II'));
+    expect(bass.ref).toBe('BASS-II — NASA-TM-202110011385');
+    // The NTRS link itself is the record ID — that part was always right.
+    expect(bass.url).toBe('https://ntrs.nasa.gov/citations/20210011385');
+  });
+
+  it('Exploration max is the verified HLS bound, 36% (34±2%)', () => {
+    expect(ATMOSPHERES.Exploration.o2Max).toBe(36);
+  });
+
+  it('verdict lines scope the untested claim to PSI', () => {
+    expect(verdictLine(getVerdict('SIBAL fabric', 'Exploration'))).toContain('in PSI');
+    expect(verdictLine(getLiveVerdict('SIBAL fabric', 24.5, 8.2))).toContain('in PSI');
+  });
+
+  it('mission brief names the next test: SIBAL at the Exploration point', () => {
+    const b = buildBrief('Exploration');
+    expect(b.nextTest.material).toBe('SIBAL fabric');
+    expect(b.nextTest.o2_pct).toBe(34);
+    expect(b.nextTest.pressure_psi).toBe(8.2);
+    expect(b.nextTest.gap).toBe(11.9);
+    expect(b.nextTest.n_o2_rows).toBe(30);
+    expect(b.nextTest.line).toContain('Run SIBAL fabric at 34%');
+  });
+
+  it('otherMaterials() lists the 29 non-headline materials, solids first', () => {
+    const others = otherMaterials();
+    expect(others).toHaveLength(29);
+    expect(others[0].className).toBe('solid');
+    const wax = others.find((m) => m.key === 'Wax candle');
+    expect(wax.className).toBe('solid');
+    expect(wax.accessions.length).toBeGreaterThan(0);
+    const ethylene = others.find((m) => m.key === 'Ethylene');
+    expect(ethylene.className).toBe('gas');
+    // Headline (5) + other (29) = all 34 verdict-eligible materials.
+    expect(new Set([...HEADLINE_MATERIALS.map((m) => m.key), ...others.map((m) => m.key)]).size).toBe(34);
   });
 });
