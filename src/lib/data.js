@@ -516,12 +516,19 @@ export function fmt(n, digits = 2) {
  *
  * Candidate bases, in order: VITE_API_BASE when set (local dev:
  * http://127.0.0.1:5000, or the vite dev proxy on same origin), then
- * same-origin (the Netlify deploy, via the /api/* rewrite), then the
- * Netlify URL outright (the GitHub Pages deploy, cross-origin — the
- * API sends Access-Control-Allow-Origin: *). One build works on both
- * hosts; the static deploys MUST keep working with no backend. */
+ * same-origin (the Netlify deploy, via the /api/* rewrite). One build
+ * works on both hosts; the static deploys MUST keep working with no
+ * backend.
+ *
+ * NO cross-origin fallback to the Netlify URL (removed 2026-11-14):
+ * Netlify deploys are PAUSED (credits exhausted, reset Dec 7), so its
+ * API still serves the pre-audit data — wrong BASS-II report number,
+ * 37% Exploration max, no nextTest — while the Pages bundle is current.
+ * The judged link (GitHub Pages) must serve the bundled PSI data, which
+ * is verified byte-identical to NASA PSI as of Nov 14. Restore the
+ * fallback only after a Netlify redeploy with the same code. */
 const ENV_BASE = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE) || '';
-export const API_CANDIDATES = ENV_BASE ? [ENV_BASE] : ['', 'https://spica-firelab.netlify.app'];
+export const API_CANDIDATES = ENV_BASE ? [ENV_BASE] : [''];
 export const LIVE_API_URL = 'https://spica-firelab.netlify.app';
 async function fetchJson(base, path, timeoutMs = 15000) {
   // 15 s: the first hit on a cold Netlify Function measured 13.2 s

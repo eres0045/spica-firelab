@@ -10,7 +10,7 @@ import {
   buildEvidence, buildEvidenceLive, EVIDENCE_ROW_KEYS,
   buildCoverage, buildCoverageLive, buildPlan, buildPlanLive,
   verdictConfidence, HEADLINE_MATERIALS, BEYOND_PSI, buildBrief,
-  BRIEF_REPORTS, ATMOSPHERES, otherMaterials,
+  BRIEF_REPORTS, ATMOSPHERES, otherMaterials, API_CANDIDATES,
 } from './data.js';
 
 describe('scatter data', () => {
@@ -514,5 +514,13 @@ describe('Nov 14 audit fixes (citations, scoping, next test)', () => {
     expect(ethylene.className).toBe('gas');
     // Headline (5) + other (29) = all 34 verdict-eligible materials.
     expect(new Set([...HEADLINE_MATERIALS.map((m) => m.key), ...others.map((m) => m.key)]).size).toBe(34);
+  });
+
+  it('no cross-origin Netlify API fallback: the judged link must use bundled data', () => {
+    // Netlify deploys are paused (credits to Dec 7) and its API serves
+    // pre-audit data — a cross-origin fallback would feed the judged
+    // link stale citations. Only a local VITE_API_BASE or same-origin
+    // may answer.
+    expect(API_CANDIDATES.join(' ')).not.toContain('netlify.app');
   });
 });
